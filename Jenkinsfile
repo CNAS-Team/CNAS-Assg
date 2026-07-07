@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         DOCKER_REGISTRY_CREDENTIALS_ID = 'docker-hub-credentials'
-        DOCKER_IMAGE_NAME = 'jq058/cnas-php-app'
+        DOCKER_IMAGE_NAME = 'jqii/cnas-php-app'
         IMAGE_TAG = "${BUILD_NUMBER}"
         KUBERNETES_CREDENTIALS_ID = 'kubeconfig-cluster-secret'
     }
