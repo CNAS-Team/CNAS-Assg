@@ -1,7 +1,7 @@
 <?php
 include 'db.php';
 
-$id = $_GET['id'];
+$id = intval($_GET['id']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name  = $_POST['name'];
@@ -14,8 +14,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit();
 }
 
-$result = $conn->query("SELECT * FROM users WHERE id=$id");
+$stmt_select = $conn->prepare("SELECT * FROM users WHERE id=?");
+$stmt_select->bind_param("i", $id);
+$stmt_select->execute();
+$result = $stmt_select->get_result();
 $user = $result->fetch_assoc();
+$stmt_select->close();
 ?>
 <!DOCTYPE html>
 <html><body>
