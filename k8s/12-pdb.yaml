@@ -1,0 +1,12 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: php-app-pdb
+  namespace: cnas
+spec:
+  # Ensures at least 2 PHP pods are always available during disruptions
+  # (node drains, rolling updates, cluster maintenance)
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: php-app
