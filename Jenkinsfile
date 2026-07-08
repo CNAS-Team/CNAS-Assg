@@ -40,12 +40,18 @@ pipeline {
             }
         }
 
+        stage('Scan Image') {
+            steps {
+                sh "trivy image --exit-code 1 --severity HIGH,CRITICAL --no-progress ${DOCKER_IMAGE_NAME}:${IMAGE_TAG}"
+            }
+        }
+
         stage('Deploy to Kubernetes') {
             steps {
                 withKubeConfig([credentialsId: KUBERNETES_CREDENTIALS_ID]) {
-                    sh "kubectl apply -f k8s/"
-                    sh "kubectl set image deployment/cnas-php-deployment cnas-php-container=${DOCKER_IMAGE_NAME}:${IMAGE_TAG}"
-                    sh "kubectl rollout status deployment/cnas-php-deployment"
+                    sh "kubectl apply -f k8s/ -n cnas"
+                    sh "kubectl set image deployment/php-app php-app=${DOCKER_IMAGE_NAME}:${IMAGE_TAG} -n cnas"
+                    sh "kubectl rollout status deployment/php-app -n cnas"
                 }
             }
         }
@@ -53,11 +59,20 @@ pipeline {
         stage('Verify Deployment') {
             steps {
                 withKubeConfig([credentialsId: KUBERNETES_CREDENTIALS_ID]) {
-                    sh "kubectl get pods"
-                    sh "kubectl get svc"
-                    sh "kubectl get deployment"
+                    sh "kubectl get pods -n cnas"
+                    sh "kubectl get svc -n cnas"
+                    sh "kubectl get deployment -n cnas"
                 }
             }
+        }
+    }
+
+    post {
+        failure {
+            echo "Pipeline failed — check the logs above for details."
+        }
+        success {
+            echo "Pipeline completed successfully. Image: ${DOCKER_IMAGE_NAME}:${IMAGE_TAG}"
         }
     }
 }
