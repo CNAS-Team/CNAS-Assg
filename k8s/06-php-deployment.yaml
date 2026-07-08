@@ -18,6 +18,53 @@ spec:
       labels:
         app: php-app
     spec:
+      # Init containers run before the main app container starts
+      initContainers:
+        # Wait for MySQL to be ready before starting PHP app
+        - name: wait-for-mysql
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Checking MySQL availability..."
+              until nc -z mysql-service 3306; do
+                echo "Waiting for MySQL to be ready on mysql-service:3306...";
+                sleep 3;
+              done;
+              echo "MySQL is ready! Proceeding to start PHP app."
+        # Initialize the database schema if needed
+        - name: init-db-schema
+          image: mysql:8.0
+          command:
+            - sh
+            - -c
+            - |
+              echo "Initializing database schema..."
+              until mysql -h mysql-service -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE < /docker-entrypoint-initdb.d/init.sql; do
+                echo "Retrying database initialization...";
+                sleep 2;
+              done;
+              echo "Database schema initialized successfully."
+          env:
+            - name: MYSQL_DATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: cnas-config
+                  key: DB_NAME
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: cnas-secret
+                  key: DB_USER
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cnas-secret
+                  key: DB_PASSWORD
+          volumeMounts:
+            - name: init-sql
+              mountPath: /docker-entrypoint-initdb.d
       containers:
         - name: php-app
           image: yourdockerhub/cnas-php-app:v1
@@ -68,3 +115,7 @@ spec:
               port: 80
             initialDelaySeconds: 20
             periodSeconds: 10
+      volumes:
+        - name: init-sql
+          configMap:
+            name: mysql-init-script
