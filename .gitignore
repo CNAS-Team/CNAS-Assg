@@ -1,0 +1,50 @@
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Docker
+docker-compose.override.yml
+*.tar
+
+# IDE and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS Files
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Kubernetes
+kubeconfig
+*.kubeconfig
+
+# Credentials (never commit!)
+*credentials*
+*secret*
+!k8s/*secret*.yaml
+*.pem
+*.key
+*.crt
+
+# Build artifacts
+dist/
+build/
+target/

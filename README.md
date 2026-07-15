@@ -1,1 +1,426 @@
-# CNAS-Assg
+# CNAS Assignment - Cloud Native Application
+
+A containerized PHP web application with MySQL database, deployed on Kubernetes with CI/CD automation.
+
+## 📋 Table of Contents
+- [Architecture Overview](#architecture-overview)
+- [Prerequisites](#prerequisites)
+- [Docker Implementation](#docker-implementation)
+- [Local Development](#local-development)
+- [Kubernetes Deployment](#kubernetes-deployment)
+- [CI/CD Pipeline](#cicd-pipeline)
+- [Security](#security)
+- [Team Members](#team-members)
+
+---
+
+## 🏗️ Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                     Kubernetes Cluster                  │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │              Ingress Controller                  │  │
+│  │         (nginx - External Access)                │  │
+│  └────────────────────┬─────────────────────────────┘  │
+│                       │                                 │
+│  ┌────────────────────▼─────────────────────────────┐  │
+│  │          PHP Application Service                 │  │
+│  │      (LoadBalancer - Port 80)                    │  │
+│  └────────────────────┬─────────────────────────────┘  │
+│                       │                                 │
+│  ┌────────────────────▼─────────────────────────────┐  │
+│  │      PHP App Deployment (3 Replicas)            │  │
+│  │   ┌──────────┐  ┌──────────┐  ┌──────────┐     │  │
+│  │   │  Pod 1   │  │  Pod 2   │  │  Pod 3   │     │  │
+│  │   │ php:8.2  │  │ php:8.2  │  │ php:8.2  │     │  │
+│  │   └──────────┘  └──────────┘  └──────────┘     │  │
+│  └────────────────────┬─────────────────────────────┘  │
+│                       │                                 │
+│  ┌────────────────────▼─────────────────────────────┐  │
+│  │          MySQL Service (Internal)                │  │
+│  │             (ClusterIP - Port 3306)              │  │
+│  └────────────────────┬─────────────────────────────┘  │
+│                       │                                 │
+│  ┌────────────────────▼─────────────────────────────┐  │
+│  │      MySQL StatefulSet (1 Replica)              │  │
+│  │   ┌──────────────────────────────────┐          │  │
+│  │   │  MySQL Pod                       │          │  │
+│  │   │  mysql:8.0                       │          │  │
+│  │   │  Persistent Volume (10Gi)        │          │  │
+│  │   └──────────────────────────────────┘          │  │
+│  └──────────────────────────────────────────────────┘  │
+│                                                         │
+│  Supporting Components:                                │
+│  • HPA (Horizontal Pod Autoscaler)                    │
+│  • PDB (Pod Disruption Budget)                        │
+│  • ConfigMaps & Secrets                               │
+│  • Kyverno Policy Engine                              │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🔧 Prerequisites
+
+### Required Tools
+- **Docker** (v20.10+)
+- **Docker Compose** (v2.0+)
+- **Kind** (Kubernetes in Docker) or Minikube
+- **kubectl** (v1.25+)
+- **Git**
+
+### Optional Tools
+- Jenkins (for CI/CD)
+- Kyverno (for policy enforcement)
+- Helm (for package management)
+
+### Installation Commands
+
+**Windows (PowerShell):**
+```powershell
+# Install Docker Desktop
+winget install Docker.DockerDesktop
+
+# Install kubectl
+winget install Kubernetes.kubectl
+
+# Install Kind
+choco install kind
+
+# Verify installations
+docker --version
+kubectl version --client
+kind version
+```
+
+**Linux/macOS:**
+```bash
+# Docker
+curl -fsSL https://get.docker.com -o get-docker.sh
+sh get-docker.sh
+
+# kubectl
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+
+# Kind
+curl -Lo ./kind https://kind.sigs.k8s.io/dl/latest/kind-linux-amd64
+chmod +x ./kind
+sudo mv ./kind /usr/local/bin/kind
+```
+
+---
+
+## 🐳 Docker Implementation
+
+### **Dockerfile Explanation**
+
+Our Dockerfile implements multi-layer security and optimization:
+
+```dockerfile
+# Base image with PHP 8.2 and Apache
+FROM php:8.2-apache AS base
+
+# Install required PHP extensions for MySQL connectivity
+RUN apt-get update && apt-get install -y \
+    netcat-traditional \
+    && docker-php-ext-install mysqli pdo pdo_mysql \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Enable Apache modules
+RUN a2enmod rewrite headers
+
+# Copy application code
+WORKDIR /var/www/html/
+COPY php-app/ /var/www/html/
+
+# Set proper permissions
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 755 /var/www/html
+
+# Security: Run as non-root user
+USER www-data
+
+# Health check for monitoring
+HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost/ || exit 1
+
+EXPOSE 80
+CMD ["apache2-foreground"]
+```
+
+### **Key Docker Features:**
+1. ✅ **Non-root user** - Runs as `www-data` for security
+2. ✅ **Health checks** - Automatic container monitoring
+3. ✅ **Optimized layers** - Minimal image size
+4. ✅ **Clean builds** - Uses `.dockerignore` to exclude unnecessary files
+5. ✅ **Specific versions** - No `latest` tags for reproducibility
+
+### **Building the Docker Image**
+
+```bash
+# Build the image
+docker build -t cnas-php-app:v1 .
+
+# Tag for registry
+docker tag cnas-php-app:v1 yourdockerhub/cnas-php-app:v1
+
+# Push to Docker Hub
+docker login
+docker push yourdockerhub/cnas-php-app:v1
+
+# Scan for vulnerabilities (recommended)
+docker scout cves cnas-php-app:v1
+```
+
+---
+
+## 💻 Local Development
+
+### **Using Docker Compose**
+
+Docker Compose simplifies local testing with all dependencies:
+
+```bash
+# Start all services (MySQL + PHP + phpMyAdmin)
+docker-compose up -d
+
+# View logs
+docker-compose logs -f php-app
+
+# Check service status
+docker-compose ps
+
+# Access the application
+# PHP App: http://localhost:8080
+# phpMyAdmin: http://localhost:8081
+
+# Stop services
+docker-compose down
+
+# Clean up volumes (caution: deletes data)
+docker-compose down -v
+```
+
+### **Container Networking**
+
+Services communicate via Docker's internal DNS:
+- PHP app connects to MySQL using hostname `mysql` (service name)
+- Network: `cnas-network` (bridge driver)
+- Isolation: Containers can only communicate within the same network
+
+### **Database Initialization**
+
+The MySQL container automatically runs `db/users.sql` on first startup:
+```sql
+CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100),
+    email VARCHAR(100)
+);
+```
+
+---
+
+## ☸️ Kubernetes Deployment
+
+### **1. Create Kind Cluster**
+
+```bash
+# Create cluster with custom configuration
+kind create cluster --config kind-cluster.yaml --name cnas-cluster
+
+# Verify cluster
+kubectl cluster-info --context kind-cnas-cluster
+kubectl get nodes
+```
+
+### **2. Deploy Application**
+
+```bash
+# Apply all Kubernetes manifests in order
+kubectl apply -f k8s/00-namespace.yaml
+kubectl apply -f k8s/01-configmap.yaml
+kubectl apply -f k8s/02-secret.yaml
+kubectl apply -f k8s/03-mysql-pvc.yaml
+kubectl apply -f k8s/04-mysql-statefulset.yaml
+kubectl apply -f k8s/05-mysql-service.yaml
+kubectl apply -f k8s/11-mysql-init-configmap.yaml
+kubectl apply -f k8s/06-php-deployment.yaml
+kubectl apply -f k8s/07-php-service.yaml
+kubectl apply -f k8s/08-ingress.yaml
+kubectl apply -f k8s/09-hpa.yaml
+kubectl apply -f k8s/12-pdb.yaml
+
+# Verify deployment
+kubectl get all -n cnas
+kubectl get pvc -n cnas
+```
+
+### **3. Install Kyverno (Policy Engine)**
+
+```bash
+# Install Kyverno
+kubectl create -f https://github.com/kyverno/kyverno/releases/download/v1.10.0/install.yaml
+
+# Apply security policies
+kubectl apply -f k8s/kyverno/01-require-resource-limits.yaml
+kubectl apply -f k8s/kyverno/02-disallow-privileged-containers.yaml
+kubectl apply -f k8s/kyverno/03-disallow-latest-tag.yaml
+
+# Verify policies
+kubectl get clusterpolicy
+```
+
+### **4. Access the Application**
+
+```bash
+# Port forward to access locally
+kubectl port-forward -n cnas service/php-service 8080:80
+
+# Access at: http://localhost:8080
+
+# Check logs
+kubectl logs -n cnas deployment/php-app -f
+
+# Check MySQL
+kubectl exec -it -n cnas mysql-0 -- mysql -u appuser -p mydb
+```
+
+---
+
+## 🔄 CI/CD Pipeline
+
+The project includes a Jenkins pipeline (`Jenkinsfile`) with the following stages:
+
+### Pipeline Stages:
+1. **Checkout** - Clone Git repository
+2. **Build Docker Image** - Build containerized application
+3. **Push to Registry** - Upload to Docker Hub
+4. **Deploy to Kubernetes** - Apply manifests
+5. **Verify Deployment** - Health checks
+
+### Running the Pipeline:
+
+```groovy
+// Jenkinsfile overview
+pipeline {
+    agent any
+    stages {
+        stage('Build') {
+            steps {
+                sh 'docker build -t cnas-php-app:${BUILD_NUMBER} .'
+            }
+        }
+        stage('Push') {
+            steps {
+                sh 'docker push yourdockerhub/cnas-php-app:${BUILD_NUMBER}'
+            }
+        }
+        stage('Deploy') {
+            steps {
+                sh 'kubectl apply -f k8s/'
+            }
+        }
+    }
+}
+```
+
+---
+
+## 🔒 Security
+
+See [DOCKER-SECURITY.md](./DOCKER-SECURITY.md) for comprehensive security documentation.
+
+### Key Security Features:
+- ✅ Non-root container execution
+- ✅ Secret management via Kubernetes Secrets
+- ✅ Resource limits to prevent resource exhaustion
+- ✅ Network policies for traffic control
+- ✅ Kyverno policies for compliance enforcement
+- ✅ Health checks for automatic recovery
+- ✅ Minimal base images to reduce attack surface
+
+### Security Checklist:
+```bash
+# Scan image for vulnerabilities
+docker scout cves cnas-php-app:v1
+
+# Check Kubernetes security
+kubectl auth can-i --list --namespace=cnas
+
+# Verify RBAC
+kubectl get rolebindings -n cnas
+
+# Check pod security
+kubectl get pods -n cnas -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.securityContext}{"\n"}{end}'
+```
+
+---
+
+## 👥 Team Members
+
+**Class:** T01 | **Team:** 02
+
+| ID | Name | Email | Role |
+|----|------|-------|------|
+| 1 | Person 1 | person1@example.com | Docker Implementation |
+| 2 | Person 2 | person2@example.com | Kubernetes Configuration |
+| 3 | Person 3 | person3@example.com | CI/CD Pipeline |
+
+---
+
+## 🧪 Testing
+
+### Local Testing with Docker Compose:
+```bash
+# Start services
+docker-compose up -d
+
+# Run integration tests
+curl http://localhost:8080
+curl http://localhost:8080/create.php
+
+# Check database connectivity
+docker-compose exec mysql mysql -u appuser -papppass -e "SELECT * FROM mydb.users;"
+```
+
+### Kubernetes Testing:
+```bash
+# Check pod readiness
+kubectl get pods -n cnas
+
+# Test service connectivity
+kubectl run -it --rm debug --image=curlimages/curl --restart=Never -n cnas -- curl http://php-service
+
+# Test database connection
+kubectl exec -it -n cnas mysql-0 -- mysql -u appuser -papppass -e "SHOW DATABASES;"
+```
+
+---
+
+## 📚 Additional Resources
+
+- [Docker Documentation](https://docs.docker.com/)
+- [Kubernetes Documentation](https://kubernetes.io/docs/)
+- [Kind Documentation](https://kind.sigs.k8s.io/)
+- [Kyverno Policies](https://kyverno.io/policies/)
+- [PHP Docker Official Images](https://hub.docker.com/_/php)
+
+---
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create feature branch: `git checkout -b feature/new-feature`
+3. Commit changes: `git commit -m "Add new feature"`
+4. Push to branch: `git push origin feature/new-feature`
+5. Submit pull request
+
+---
+
+## 📝 License
+
+This project is for educational purposes as part of CNAS coursework.

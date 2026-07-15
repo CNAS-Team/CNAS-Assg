@@ -1,0 +1,37 @@
+# Git files
+.git
+.gitignore
+.gitattributes
+
+# Kubernetes manifests (not needed in container)
+k8s/
+*.yaml
+
+# Documentation
+README.md
+*.md
+
+# CI/CD files
+Jenkinsfile
+.jenkins/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs and temporary files
+*.log
+tmp/
+temp/
+
+# Development files
+docker-compose*.yml
+kind-cluster.yaml
