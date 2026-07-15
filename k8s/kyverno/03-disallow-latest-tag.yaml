@@ -1,0 +1,38 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-latest-tag
+  annotations:
+    policies.kyverno.io/title: Disallow Latest Image Tag
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      Using the 'latest' image tag is unpredictable and makes it impossible
+      to track exactly which image version is running. This policy enforces
+      the use of explicit, versioned image tags (e.g. :1.0.0, :v2, :20240101)
+      to ensure reproducible and auditable deployments.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: check-image-tag
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - cnas
+      validate:
+        message: "Image tag 'latest' is not allowed in namespace 'cnas'. Use an explicit version tag (e.g. :1.0.0 or :20240101)."
+        foreach:
+          - list: "request.object.spec.containers"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.image }}"
+                    operator: Equals
+                    value: "*:latest"
+                  - key: "{{ element.image }}"
+                    operator: NotContains
+                    value: ":"
