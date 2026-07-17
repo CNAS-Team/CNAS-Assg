@@ -1,82 +1,32 @@
 version: '3.8'
-
 services:
-  # MySQL Database Service
-  mysql:
-    image: mysql:8.0
-    container_name: cnas-mysql
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: rootpass
-      MYSQL_DATABASE: mydb
-      MYSQL_USER: appuser
-      MYSQL_PASSWORD: apppass
-    ports:
-      - "3306:3306"
-    volumes:
-      # Persistent data storage
-      - mysql-data:/var/lib/mysql
-      # Initialize database with schema
-      - ./db/users.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    networks:
-      - cnas-network
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpass"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-
-  # PHP Application Service
-  php-app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: cnas-php-app
-    restart: unless-stopped
+  web:
+    build: ./php-app
     ports:
       - "8080:80"
     environment:
       DB_HOST: mysql
+      DB_USER: root
+      DB_PASSWORD: rootpass
       DB_NAME: mydb
-      DB_USER: appuser
-      DB_PASSWORD: apppass
       DB_PORT: 3306
     depends_on:
-      mysql:
-        condition: service_healthy
+      - mysql
     networks:
-      - cnas-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 40s
+      - app-network
 
-  # Optional: phpMyAdmin for database management
-  phpmyadmin:
-    image: phpmyadmin:latest
-    container_name: cnas-phpmyadmin
-    restart: unless-stopped
-    ports:
-      - "8081:80"
+  mysql:
+    image: mysql:8.0
     environment:
-      PMA_HOST: mysql
-      PMA_PORT: 3306
-      PMA_USER: root
-      PMA_PASSWORD: rootpass
-    depends_on:
-      mysql:
-        condition: service_healthy
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: mydb
+    volumes:
+      - ./db/users.sql:/docker-entrypoint-initdb.d/users.sql
+      - db-data:/var/lib/mysql
     networks:
-      - cnas-network
+      - app-network
 
 networks:
-  cnas-network:
-    driver: bridge
-    name: cnas-network
-
+  app-network:
 volumes:
-  mysql-data:
-    name: cnas-mysql-data
+  db-data:
