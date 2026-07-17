@@ -1,412 +1,614 @@
-# 🧪 Manual Testing Guide - Step by Step
+# Manual Testing Guide
 
-Simple manual testing without any automation scripts.
+This guide covers testing both the Docker Compose (local dev) setup and the full Kubernetes deployment on a KinD cluster.
 
 ---
 
-## 📍 Step 1: Open Terminal
+## Prerequisites
 
-Open PowerShell or Command Prompt and navigate to your project:
+Make sure these tools are installed before starting:
+
+```powershell
+docker --version        # Docker Desktop 20.10+
+docker compose version  # v2.0+
+kind version            # 0.20+
+kubectl version --client
+```
+
+---
+
+## Part 1 — Docker Compose (Local Dev)
+
+### 1.1 Set up environment variables
+
+Copy the example env file and fill in your values:
 
 ```powershell
 cd "c:\Cloud Native Architecture\CNAS-Assg"
+copy .env.example .env
+```
+
+The defaults in `.env` will work out of the box for local testing:
+```
+DB_USER=cnasuser
+DB_PASSWORD=cnaspass
+DB_NAME=mydb
+MYSQL_ROOT_PASSWORD=rootpass
 ```
 
 ---
 
-## 🚀 Step 2: Start the Containers
+### 1.2 Start containers
 
 ```powershell
-docker-compose up -d
+docker compose up -d
 ```
 
-**Expected output:**
+Expected output — three lines like:
 ```
-Creating network "cnas-network" ... done
-Creating volume "cnas-mysql-data" ... done
-Creating cnas-mysql ... done
-Creating cnas-php-app ... done
-Creating cnas-phpmyadmin ... done
+✔ Container cnas-mysql    Healthy
+✔ Container cnas-php-app  Started
 ```
 
 ---
 
-## ⏱️ Step 3: Wait for Startup
-
-**Wait 60 seconds** for MySQL to initialize and PHP app to be ready.
-
-You can grab a coffee ☕ or check the logs:
+### 1.3 Verify containers are healthy
 
 ```powershell
-docker-compose logs -f
+docker compose ps
 ```
 
-Look for these messages:
-- MySQL: `"mysqld: ready for connections"`
-- PHP: `"Apache/2.4.x configured"`
+Both services should show `running (healthy)`. MySQL's healthcheck runs `mysqladmin ping`, so `healthy` confirms MySQL is actually accepting connections, not just started.
 
-Press `Ctrl+C` to stop viewing logs.
+If MySQL shows `starting` wait 30 seconds and recheck. If it shows `unhealthy`:
+```powershell
+docker compose logs mysql
+```
 
 ---
 
-## ✅ Step 4: Check Container Status
+### 1.4 Open the app
+
+Go to **http://localhost:8080** in your browser.
+
+You should see:
+- Page title: "Team Members in Class -T01 Team – 02"
+- "Add New Team Member" link
+- An empty table with columns: ID, Student Name, Email, Actions
+
+---
+
+### 1.5 Test CREATE
+
+1. Click **Add New Team Member**
+2. Enter:
+   - Name: `Alice Tan`
+   - Email: `alice@example.com`
+3. Click **Create**
+
+Expected: redirected back to the table with Alice listed, ID = 1.
+
+---
+
+### 1.6 Test READ
+
+The table on `index.php` should now show Alice's record. Add two more users:
+- `Bob Lim` / `bob@example.com`
+- `Charlie Ng` / `charlie@example.com`
+
+All three should appear in the table with sequential IDs.
+
+---
+
+### 1.7 Test UPDATE
+
+1. Click **Edit** next to Alice
+2. Change name to `Alice Tan (edited)`
+3. Click **Update**
+
+Expected: redirected back, name updated, ID unchanged.
+
+---
+
+### 1.8 Test DELETE
+
+1. Click **Delete** next to Bob
+2. A confirmation dialog appears — click OK
+
+Expected: Bob is removed from the table. Alice and Charlie remain.
+
+---
+
+### 1.9 Test data persistence
+
+Stop and restart the containers:
 
 ```powershell
-docker-compose ps
+docker compose down
+docker compose up -d
 ```
 
-**Expected output:**
-```
-NAME              STATE
-cnas-mysql        Up (healthy)
-cnas-php-app      Up (healthy)
-cnas-phpmyadmin   Up
-```
+Wait for healthy status then refresh **http://localhost:8080**.
 
-All should show **"Up"** status.
-
-❌ **If any container shows "Exit" or "Restarting":**
-```powershell
-docker-compose logs [container-name]
-```
+Expected: Alice and Charlie are still there. Data survived the restart because MySQL uses a named volume (`db-data`).
 
 ---
 
-## 🌐 Step 5: Test PHP Application
-
-Open your browser and go to:
-```
-http://localhost:8082
-```
-
-**What you should see:**
-- ✅ Page loads successfully
-- ✅ Title: "Team Members in Class -T01 Team – 02"
-- ✅ "Add New Team Member" link
-- ✅ Table with columns: ID, Student Name, Email, Actions
-- ✅ No error messages
-
-❌ **If you see an error:** Wait another 30 seconds, MySQL might still be initializing.
-
----
-
-## 🗄️ Step 6: Test phpMyAdmin
-
-Open your browser and go to:
-```
-http://localhost:8083
-```
-
-**Login with:**
-- Server: `mysql`
-- Username: `root`
-- Password: `rootpass`
-
-**What you should see:**
-- ✅ phpMyAdmin dashboard loads
-- ✅ Left sidebar shows "mydb" database
-- ✅ Click "mydb" → see "users" table
-- ✅ Click "users" → see columns: id, name, email
-
----
-
-## 📝 Step 7: Test CREATE (Add User)
-
-In your browser at http://localhost:8082:
-
-1. Click **"Add New Team Member"**
-2. Fill in the form:
-   - Name: `Test Student`
-   - Email: `test@example.com`
-3. Click **Submit**
-
-**Expected:**
-- ✅ Redirected back to main page
-- ✅ New user appears in the table
-- ✅ User has ID = 1
-
----
-
-## ✏️ Step 8: Test UPDATE (Edit User)
-
-1. Click **"Edit"** next to the user
-2. Change name to: `Updated Student`
-3. Click **Submit**
-
-**Expected:**
-- ✅ Redirected back to main page
-- ✅ Name changed to "Updated Student"
-- ✅ Same ID (still 1)
-
----
-
-## 🗑️ Step 9: Test DELETE (Remove User)
-
-1. Click **"Delete"** next to the user
-2. User disappears from the table
-
-**Expected:**
-- ✅ User removed
-- ✅ Table is now empty
-
----
-
-## 🔌 Step 10: Test Container Networking
+### 1.10 Verify database structure directly
 
 ```powershell
-docker exec cnas-php-app ping mysql -c 3
+docker compose exec mysql mysql -u cnasuser -pcnaspass mydb -e "DESCRIBE users;"
 ```
 
-**Expected:**
+Expected output:
 ```
-PING mysql (172.x.x.x) ...
-3 packets transmitted, 3 received, 0% packet loss
++-------+--------------+------+-----+---------+----------------+
+| Field | Type         | Null | Key | Default | Extra          |
++-------+--------------+------+-----+---------+----------------+
+| id    | int          | NO   | PRI | NULL    | auto_increment |
+| name  | varchar(100) | NO   |     | NULL    |                |
+| email | varchar(100) | NO   |     | NULL    |                |
++-------+--------------+------+-----+---------+----------------+
 ```
+
+Both `name` and `email` must show `NO` in the Null column.
 
 ---
 
-## 💾 Step 11: Test Data Persistence
-
-### Add some test data first:
-1. Go to http://localhost:8082
-2. Add 2-3 users with different names
-
-### Restart containers:
-```powershell
-docker-compose down
-docker-compose up -d
-```
-
-### Wait 60 seconds, then check:
-```powershell
-# Wait
-Start-Sleep -Seconds 60
-
-# Or just wait manually, then...
-```
-
-Go to http://localhost:8082
-
-**Expected:**
-- ✅ All your users are still there
-- ✅ Same IDs
-- ✅ No data lost
-
----
-
-## 📊 Step 12: Check Resource Usage
+### 1.11 Test container networking
 
 ```powershell
-docker stats
+docker compose exec web ping -c 3 mysql
 ```
 
-Press `Ctrl+C` to exit.
-
-**Look for:**
-- CPU usage < 10% (when idle)
-- Memory: MySQL ~200-400MB, PHP ~50-100MB
+Expected: 3 packets transmitted, 0% packet loss.
 
 ---
 
-## 🔍 Step 13: Verify Database Structure
-
-### Option A: Via phpMyAdmin
-1. Go to http://localhost:8083
-2. Click "mydb" → "users" → "Structure"
-3. Verify columns and types
-
-### Option B: Via Command Line
-```powershell
-docker exec -it cnas-mysql mysql -u root -prootpass
-```
-
-Then inside MySQL:
-```sql
-USE mydb;
-SHOW TABLES;
-DESCRIBE users;
-exit;
-```
-
-**Expected table structure:**
-- id: INT, PRIMARY KEY, AUTO_INCREMENT
-- name: VARCHAR(100)
-- email: VARCHAR(100)
-
----
-
-## 🧹 Step 14: View Logs (Optional)
-
-Check for any errors:
+### 1.12 Check resource usage
 
 ```powershell
-# All logs
-docker-compose logs
-
-# Just MySQL
-docker-compose logs mysql
-
-# Just PHP app
-docker-compose logs php-app
-
-# Follow logs in real-time
-docker-compose logs -f
+docker stats --no-stream
 ```
 
-**Look for:**
-- ✅ No ERROR or FATAL messages
-- ✅ MySQL: "ready for connections"
-- ✅ PHP: Apache started successfully
+Rough expected ranges at idle:
+- MySQL: ~200–400 MB memory
+- PHP/Apache: ~50–100 MB memory
+- Neither should be near 100% CPU
 
 ---
 
-## 🛑 Step 15: Stop Everything (When Done)
+### 1.13 Stop Docker Compose
 
 ```powershell
-docker-compose down
-```
+# Stop but keep data volume
+docker compose down
 
-**To also remove data (clean slate):**
-```powershell
-docker-compose down -v
-```
-
----
-
-## ✅ Testing Checklist
-
-Mark these off as you test:
-
-### Basic Tests
-- [ ] Containers started successfully
-- [ ] All containers show "Up" status
-- [ ] PHP app loads at http://localhost:8082
-- [ ] phpMyAdmin loads at http://localhost:8083
-- [ ] No error messages on web pages
-
-### Database Tests
-- [ ] Database "mydb" exists
-- [ ] Table "users" has correct structure
-- [ ] Can log into phpMyAdmin
-
-### CRUD Tests
-- [ ] **CREATE:** Can add new user
-- [ ] **READ:** Users display in table
-- [ ] **UPDATE:** Can edit user
-- [ ] **DELETE:** Can remove user
-
-### Advanced Tests
-- [ ] Containers can ping each other
-- [ ] Data survives restart
-- [ ] Resource usage is normal
-- [ ] No errors in logs
-
----
-
-## 🎯 Success Criteria
-
-Your testing is **SUCCESSFUL** if:
-
-✅ All containers running  
-✅ Web pages load without errors  
-✅ Can create, read, update, delete users  
-✅ Data persists after restart  
-✅ No critical errors in logs  
-
----
-
-## 🆘 Common Issues
-
-### Issue: "Cannot connect to database"
-**Wait longer** - MySQL takes 30-60 seconds to initialize on first start.
-
-### Issue: "Page not loading"
-```powershell
-# Check if containers are running
-docker-compose ps
-
-# If not running, check logs
-docker-compose logs
-```
-
-### Issue: "Port already in use"
-```powershell
-# Find what's using the port
-netstat -ano | findstr :8082
-
-# Change port in docker-compose.yml if needed
-```
-
-### Issue: Container keeps restarting
-```powershell
-# View error messages
-docker-compose logs [container-name]
+# Stop AND wipe all data (clean slate for next test)
+docker compose down -v
 ```
 
 ---
 
-## 📸 Screenshots to Take
+## Part 2 — Kubernetes on KinD
 
-For your report/documentation:
-
-1. `docker-compose ps` output
-2. PHP app main page (http://localhost:8082)
-3. User list with test data
-4. Add/Edit user forms
-5. phpMyAdmin database structure
-6. `docker stats` output
-
----
-
-## 🌐 Important URLs
-
-```
-Your CNAS Project:
-- PHP Application:  http://localhost:8082
-- phpMyAdmin:       http://localhost:8083
-
-Your Existing Services:
-- Jenkins:          http://localhost:8080  (unchanged)
-```
-
----
-
-## 📋 Quick Command Reference
+### 2.1 Create the KinD cluster
 
 ```powershell
-# Start
-docker-compose up -d
+kind create cluster --config kind-cluster.yaml --name cnas-cluster
+```
 
-# Stop
-docker-compose down
+Verify the cluster is up:
+```powershell
+kubectl cluster-info --context kind-cnas-cluster
+kubectl get nodes
+```
 
-# Check status
-docker-compose ps
+Expected: 1 control-plane + 3 worker nodes all in `Ready` state.
 
-# View logs
-docker-compose logs -f
+---
 
-# Restart
-docker-compose restart
+### 2.2 Install Kyverno
 
-# Clean everything
-docker-compose down -v
+Kyverno must be running before you apply your app manifests, otherwise its admission webhook is not available and pod creation will fail.
 
-# Stats
-docker stats
+```powershell
+kubectl create -f https://github.com/kyverno/kyverno/releases/download/v1.11.0/install.yaml
+```
+
+Wait for Kyverno pods to be ready:
+```powershell
+kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=kyverno -n kyverno --timeout=120s
 ```
 
 ---
 
-## ⏱️ Time Estimate
+### 2.3 Install nginx Ingress controller
 
-- Setup and start: **5 minutes**
-- Basic testing: **10 minutes**
-- CRUD testing: **5 minutes**
-- Advanced tests: **10 minutes**
+Required for the Ingress resource to route traffic.
 
-**Total: ~30 minutes**
+```powershell
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+```
+
+Wait for it to be ready:
+```powershell
+kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=120s
+```
 
 ---
 
-**That's it! Follow these steps in order and you'll thoroughly test your Docker setup manually.** 🎉
+### 2.4 Install metrics-server
+
+Required for the HPA to read CPU metrics.
+
+```powershell
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+```
+
+Patch it for KinD (disables TLS cert verification, needed in local clusters):
+```powershell
+kubectl patch deployment metrics-server -n kube-system --type=json -p '[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+```
+
+---
+
+### 2.5 Build and load the PHP image into KinD
+
+KinD clusters can't pull from Docker Hub by default during development. Build locally and load directly:
+
+```powershell
+docker build -t jqii/cnas-php-app:latest .
+kind load docker-image jqii/cnas-php-app:latest --name cnas-cluster
+```
+
+---
+
+### 2.6 Apply Kyverno policies
+
+```powershell
+kubectl apply -f k8s/kyverno/
+kubectl get clusterpolicy
+```
+
+Expected — 4 policies all showing `READY = True`:
+```
+NAME                          ADMISSION   BACKGROUND   READY   AGE
+disallow-latest-tag           true        true         True    ...
+disallow-privileged-containers true       true         True    ...
+require-resource-limits       true        true         True    ...
+require-run-as-non-root       true        true         True    ...
+```
+
+---
+
+### 2.7 Deploy the application
+
+Apply manifests in order:
+
+```powershell
+kubectl apply -f k8s/00-namespace.yaml
+kubectl apply -f k8s/14-serviceaccounts.yaml
+kubectl apply -f k8s/01-configmap.yaml
+kubectl apply -f k8s/02-secret.yaml
+kubectl apply -f k8s/03-mysql-pvc.yaml
+kubectl apply -f k8s/04-mysql-statefulset.yaml
+kubectl apply -f k8s/05-mysql-service.yaml
+kubectl apply -f k8s/11-mysql-init-configmap.yaml
+kubectl apply -f k8s/06-php-deployment.yaml
+kubectl apply -f k8s/07-php-service.yaml
+kubectl apply -f k8s/08-ingress.yaml
+kubectl apply -f k8s/09-hpa.yaml
+kubectl apply -f k8s/12-pdb.yaml
+kubectl apply -f k8s/13-network-policy.yaml
+```
+
+---
+
+### 2.8 Wait for all pods to be ready
+
+```powershell
+kubectl get pods -n cnas -w
+```
+
+Press Ctrl+C once all pods show `Running`. Expected:
+```
+NAME                       READY   STATUS    RESTARTS
+mysql-0                    1/1     Running   0
+php-app-xxxxxxxxx-xxxxx    1/1     Running   0
+php-app-xxxxxxxxx-xxxxx    1/1     Running   0
+php-app-xxxxxxxxx-xxxxx    1/1     Running   0
+```
+
+MySQL takes 30–60 seconds because of the init containers on the PHP deployment.
+
+If a pod stays in `Pending` or `CrashLoopBackOff`:
+```powershell
+kubectl describe pod <pod-name> -n cnas
+kubectl logs <pod-name> -n cnas --previous
+```
+
+---
+
+### 2.9 Verify all resources deployed correctly
+
+```powershell
+kubectl get all -n cnas
+kubectl get pvc -n cnas
+kubectl get ingress -n cnas
+kubectl get networkpolicy -n cnas
+kubectl get hpa -n cnas
+```
+
+Check the PVC is bound:
+```powershell
+kubectl get pvc -n cnas
+```
+`mysql-pvc` should show `STATUS = Bound`.
+
+---
+
+### 2.10 Add hosts entry for the Ingress
+
+The Ingress uses host `cnas.local`. Add it to your hosts file so the browser resolves it:
+
+Open PowerShell **as Administrator**:
+```powershell
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "127.0.0.1 cnas.local"
+```
+
+---
+
+### 2.11 Open the app
+
+Go to **http://cnas.local** in your browser.
+
+You should see the same Team Members page as in Docker Compose. Run through the same CRUD tests from steps 1.5–1.8.
+
+If the page doesn't load, port-forward directly to bypass the Ingress:
+```powershell
+kubectl port-forward -n cnas service/php-service 8080:80
+```
+Then test at **http://localhost:8080**.
+
+---
+
+### 2.12 Verify init containers ran successfully
+
+```powershell
+kubectl logs -n cnas <php-app-pod-name> -c wait-for-mysql
+kubectl logs -n cnas <php-app-pod-name> -c init-db-schema
+```
+
+Expected in `wait-for-mysql`:
+```
+Checking MySQL availability...
+MySQL is ready! Proceeding to start PHP app.
+```
+
+Expected in `init-db-schema`:
+```
+Initializing database schema...
+Database schema initialized successfully.
+```
+
+---
+
+### 2.13 Verify database schema inside the cluster
+
+```powershell
+kubectl exec -it -n cnas mysql-0 -- mysql -u cnasuser -pcnaspass mydb -e "DESCRIBE users;"
+```
+
+Same expected output as step 1.10 — both `name` and `email` must show `NOT NULL`.
+
+---
+
+### 2.14 Test the HPA
+
+Generate some load to trigger autoscaling. Open a second terminal and run:
+
+```powershell
+kubectl run load-gen --image=busybox:1.36 --restart=Never -n cnas -- sh -c "while true; do wget -q -O- http://php-service/; done"
+```
+
+In the first terminal, watch the HPA:
+```powershell
+kubectl get hpa -n cnas -w
+```
+
+After 1–2 minutes you should see `REPLICAS` climb above 3 (up to the max of 6). Stop the load generator:
+```powershell
+kubectl delete pod load-gen -n cnas
+```
+
+Replicas will scale back down to 3 after the cooldown period (~5 minutes).
+
+---
+
+### 2.15 Test Pod Disruption Budget
+
+The PDB requires at least 2 PHP pods available at all times. Test it by draining a worker node:
+
+```powershell
+# Get node names
+kubectl get nodes
+
+# Drain one worker (replace <node> with the actual name)
+kubectl drain <node> --ignore-daemonsets --delete-emptydir-data
+```
+
+Expected: 2 of 3 PHP pods are evicted and rescheduled on other nodes. The third stays running until replacements are ready, honouring `minAvailable: 2`.
+
+Uncordon the node when done:
+```powershell
+kubectl uncordon <node>
+```
+
+---
+
+### 2.16 Test Kyverno policy enforcement
+
+Try to apply a pod that violates a policy — it should be blocked.
+
+**Test 1: No resource limits**
+```powershell
+kubectl run policy-test --image=nginx:1.25 -n cnas --restart=Never
+```
+Expected error:
+```
+Error from server: admission webhook "validate.kyverno.svc" denied the request:
+All containers in namespace 'cnas' must define CPU and memory limits.
+```
+
+**Test 2: Latest image tag**
+```powershell
+kubectl run tag-test --image=nginx:latest -n cnas --restart=Never
+```
+Expected error mentioning `disallow-latest-tag` policy.
+
+**Test 3: Root container**
+```powershell
+kubectl run root-test -n cnas --restart=Never --image=nginx:1.25 \
+  --overrides='{"spec":{"containers":[{"name":"root-test","image":"nginx:1.25","securityContext":{"runAsUser":0},"resources":{"limits":{"cpu":"100m","memory":"128Mi"},"requests":{"cpu":"50m","memory":"64Mi"}}}]}}'
+```
+Expected error mentioning `require-run-as-non-root` policy.
+
+---
+
+### 2.17 Test Network Policy
+
+Verify MySQL is not reachable from an arbitrary pod (non php-app):
+
+```powershell
+kubectl run netpol-test --image=busybox:1.36 -n cnas --restart=Never -- sh -c "nc -zv mysql-service 3306; echo exit:$?"
+kubectl logs netpol-test -n cnas
+kubectl delete pod netpol-test -n cnas
+```
+
+Expected: connection times out or is refused — the NetworkPolicy blocks it because the pod does not have the `app: php-app` label.
+
+---
+
+### 2.18 Test rolling update
+
+Simulate a new deployment (e.g. after a Jenkins build):
+
+```powershell
+kubectl set image deployment/php-app php-app=jqii/cnas-php-app:latest -n cnas
+kubectl rollout status deployment/php-app -n cnas
+```
+
+While the rollout is happening, run:
+```powershell
+kubectl get pods -n cnas -w
+```
+
+You should see new pods start (`ContainerCreating`) before old ones terminate, because `maxUnavailable: 1` and `maxSurge: 1` are set. The app stays available throughout.
+
+To roll back:
+```powershell
+kubectl rollout undo deployment/php-app -n cnas
+kubectl rollout status deployment/php-app -n cnas
+```
+
+---
+
+### 2.19 Check securityContext is applied
+
+Confirm containers are not running as root:
+
+```powershell
+kubectl get pods -n cnas -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{range .spec.containers[*]}{.securityContext}{"\n"}{end}{end}'
+```
+
+Each container should show `runAsNonRoot:true` and `allowPrivilegeEscalation:false`.
+
+---
+
+### 2.20 View application logs
+
+```powershell
+# All PHP pods
+kubectl logs -n cnas deployment/php-app
+
+# Follow live logs from a specific pod
+kubectl logs -n cnas <pod-name> -f
+
+# MySQL logs
+kubectl logs -n cnas mysql-0
+```
+
+Look for Apache access log entries when you make requests. No `FATAL` or `ERROR` lines should appear under normal use.
+
+---
+
+### 2.21 Clean up
+
+```powershell
+# Delete all app resources
+kubectl delete namespace cnas
+
+# Delete the KinD cluster entirely
+kind delete cluster --name cnas-cluster
+```
+
+---
+
+## Testing Checklist
+
+### Docker Compose
+- [ ] Containers start and reach `healthy` status
+- [ ] App loads at http://localhost:8080
+- [ ] CREATE — can add a new user
+- [ ] READ — user appears in the table
+- [ ] UPDATE — can edit a user's name/email
+- [ ] DELETE — user is removed, confirmation dialog shown
+- [ ] Data survives `docker compose down` + `docker compose up -d`
+- [ ] DB schema has `NOT NULL` on `name` and `email`
+- [ ] Container networking works (`ping mysql`)
+
+### Kubernetes
+- [ ] KinD cluster created with 1 control-plane + 3 workers
+- [ ] Kyverno, nginx-ingress, and metrics-server installed
+- [ ] All 4 Kyverno ClusterPolicies show `READY = True`
+- [ ] All pods reach `Running` state
+- [ ] PVC `mysql-pvc` is `Bound`
+- [ ] App loads at http://cnas.local (or via port-forward)
+- [ ] CRUD operations work end-to-end
+- [ ] Init container logs show successful DB schema init
+- [ ] HPA scales up under load, scales back down after
+- [ ] PDB keeps at least 2 pods running during node drain
+- [ ] Kyverno blocks pods with no resource limits
+- [ ] Kyverno blocks `latest` image tags
+- [ ] Kyverno blocks root containers
+- [ ] NetworkPolicy blocks MySQL access from unlabelled pods
+- [ ] Rolling update completes with zero downtime
+- [ ] Rollback (`kubectl rollout undo`) restores previous version
+- [ ] No root processes (`runAsNonRoot: true` confirmed)
+
+---
+
+## Quick Reference
+
+```powershell
+# Docker Compose
+docker compose up -d
+docker compose ps
+docker compose logs -f
+docker compose down -v
+
+# Kubernetes — check everything
+kubectl get all -n cnas
+kubectl get pvc,ingress,networkpolicy,hpa,pdb -n cnas
+kubectl describe pod <name> -n cnas
+kubectl logs <name> -n cnas
+
+# Kyverno
+kubectl get clusterpolicy
+kubectl describe clusterpolicy require-resource-limits
+
+# KinD
+kind get clusters
+kind delete cluster --name cnas-cluster
+```
