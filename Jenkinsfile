@@ -23,6 +23,12 @@ pipeline {
             }
         }
 
+        stage('Scan Image') {
+            steps {
+                sh "trivy image --exit-code 1 --severity HIGH,CRITICAL --no-progress ${DOCKER_IMAGE_NAME}:${IMAGE_TAG}"
+            }
+        }
+
         stage('Push Docker Image') {
             steps {
                 script {
@@ -34,15 +40,10 @@ pipeline {
             }
         }
 
-        stage('Scan Image') {
-            steps {
-                sh "trivy image --exit-code 1 --severity HIGH,CRITICAL --no-progress ${DOCKER_IMAGE_NAME}:${IMAGE_TAG}"
-            }
-        }
-
         stage('Deploy to Kubernetes') {
             steps {
                 withKubeConfig([credentialsId: KUBERNETES_CREDENTIALS_ID]) {
+                    sh "kubectl apply -f k8s/kyverno/"
                     sh "kubectl apply -f k8s/ -n cnas"
                     sh "kubectl set image deployment/php-app php-app=${DOCKER_IMAGE_NAME}:${IMAGE_TAG} -n cnas"
                     sh "kubectl rollout status deployment/php-app -n cnas"

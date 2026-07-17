@@ -6,23 +6,32 @@ services:
       - "8080:80"
     environment:
       DB_HOST: mysql
-      DB_USER: root
-      DB_PASSWORD: rootpass
-      DB_NAME: mydb
-      DB_PORT: 3306
+      DB_USER: ${DB_USER:-cnasuser}
+      DB_PASSWORD: ${DB_PASSWORD:-cnaspass}
+      DB_NAME: ${DB_NAME:-mydb}
+      DB_PORT: ${DB_PORT:-3306}
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
     networks:
       - app-network
 
   mysql:
     image: mysql:8.0
     environment:
-      MYSQL_ROOT_PASSWORD: rootpass
-      MYSQL_DATABASE: mydb
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass}
+      MYSQL_DATABASE: ${DB_NAME:-mydb}
+      MYSQL_USER: ${DB_USER:-cnasuser}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-cnaspass}
     volumes:
       - ./db/users.sql:/docker-entrypoint-initdb.d/users.sql
       - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpass}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     networks:
       - app-network
 

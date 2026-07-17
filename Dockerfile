@@ -3,6 +3,7 @@ FROM php:8.2-apache AS base
 
 # Install system dependencies and PHP extensions
 RUN apt-get update && apt-get install -y \
+    curl \
     netcat-traditional \
     && docker-php-ext-install mysqli pdo pdo_mysql \
     && apt-get clean \

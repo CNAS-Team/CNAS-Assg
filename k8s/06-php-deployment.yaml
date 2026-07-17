@@ -33,6 +33,13 @@ spec:
                 sleep 3;
               done;
               echo "MySQL is ready! Proceeding to start PHP app."
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "100m"
+              memory: "128Mi"
         # Initialize the database schema if needed
         - name: init-db-schema
           image: mysql:8.0
@@ -46,6 +53,13 @@ spec:
                 sleep 2;
               done;
               echo "Database schema initialized successfully."
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "100m"
+              memory: "128Mi"
           env:
             - name: MYSQL_DATABASE
               valueFrom:
@@ -67,7 +81,7 @@ spec:
               mountPath: /docker-entrypoint-initdb.d
       containers:
         - name: php-app
-          image: yourdockerhub/cnas-php-app:v1
+          image: jqii/cnas-php-app:latest
           ports:
             - containerPort: 80
           env:

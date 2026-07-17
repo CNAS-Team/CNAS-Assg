@@ -10,13 +10,16 @@
 <?php
 $result = $conn->query("SELECT * FROM users");
 while ($row = $result->fetch_assoc()) {
+    $id    = htmlspecialchars($row['id'],    ENT_QUOTES, 'UTF-8');
+    $name  = htmlspecialchars($row['name'],  ENT_QUOTES, 'UTF-8');
+    $email = htmlspecialchars($row['email'], ENT_QUOTES, 'UTF-8');
     echo "<tr>
-            <td>{$row['id']}</td>
-            <td>{$row['name']}</td>
-            <td>{$row['email']}</td>
+            <td>{$id}</td>
+            <td>{$name}</td>
+            <td>{$email}</td>
             <td>
-                <a href='update.php?id={$row['id']}'>Edit</a> |
-                <a href='delete.php?id={$row['id']}'>Delete</a>
+                <a href='update.php?id={$id}'>Edit</a> |
+                <a href='delete.php?id={$id}'>Delete</a>
             </td>
           </tr>";
 }
