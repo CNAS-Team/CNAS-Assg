@@ -43,9 +43,12 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 withKubeConfig([credentialsId: KUBERNETES_CREDENTIALS_ID]) {
+                    // Apply Kyverno policies first and wait for the webhook to be ready
                     sh "kubectl apply -f k8s/kyverno/"
+                    sh "kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=kyverno -n kyverno --timeout=90s || true"
+                    // Inject the exact build tag into the manifest before applying
+                    sh "sed -i 's|jqii/cnas-php-app:latest|${DOCKER_IMAGE_NAME}:${IMAGE_TAG}|g' k8s/06-php-deployment.yaml"
                     sh "kubectl apply -f k8s/ -n cnas"
-                    sh "kubectl set image deployment/php-app php-app=${DOCKER_IMAGE_NAME}:${IMAGE_TAG} -n cnas"
                     sh "kubectl rollout status deployment/php-app -n cnas"
                 }
             }
@@ -65,6 +68,10 @@ pipeline {
     post {
         failure {
             echo "Pipeline failed — check the logs above for details."
+            withKubeConfig([credentialsId: KUBERNETES_CREDENTIALS_ID]) {
+                sh "kubectl rollout undo deployment/php-app -n cnas || true"
+                echo "Rollback triggered for php-app deployment."
+            }
         }
         success {
             echo "Pipeline completed successfully. Image: ${DOCKER_IMAGE_NAME}:${IMAGE_TAG}"

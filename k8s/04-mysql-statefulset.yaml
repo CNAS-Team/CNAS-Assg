@@ -14,11 +14,22 @@ spec:
       labels:
         app: mysql
     spec:
+      serviceAccountName: mysql-sa
+      # Run MySQL process as the mysql user (UID 999)
+      securityContext:
+        fsGroup: 999
       containers:
         - name: mysql
           image: mysql:8.0
           ports:
             - containerPort: 3306
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           env:
             - name: MYSQL_DATABASE
               value: mydb
@@ -48,13 +59,19 @@ spec:
             - name: mysql-storage
               mountPath: /var/lib/mysql
           readinessProbe:
-            tcpSocket:
-              port: 3306
+            exec:
+              command:
+                - sh
+                - -c
+                - "mysqladmin ping -h localhost -u root -p${MYSQL_ROOT_PASSWORD} --silent"
             initialDelaySeconds: 20
             periodSeconds: 10
           livenessProbe:
-            tcpSocket:
-              port: 3306
+            exec:
+              command:
+                - sh
+                - -c
+                - "mysqladmin ping -h localhost -u root -p${MYSQL_ROOT_PASSWORD} --silent"
             initialDelaySeconds: 30
             periodSeconds: 10
       volumes:

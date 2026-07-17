@@ -1,0 +1,57 @@
+# Deny all ingress/egress by default for the cnas namespace,
+# then selectively allow only what is needed.
+
+# 1. Deny all traffic to MySQL except from php-app pods
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mysql-allow-php-only
+  namespace: cnas
+spec:
+  podSelector:
+    matchLabels:
+      app: mysql
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: php-app
+      ports:
+        - protocol: TCP
+          port: 3306
+---
+# 2. Allow php-app to receive traffic from the Ingress controller
+#    and to make outbound connections to MySQL only
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: php-app-network-policy
+  namespace: cnas
+spec:
+  podSelector:
+    matchLabels:
+      app: php-app
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 80
+  egress:
+    # Allow DNS resolution
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Allow outbound to MySQL only
+    - to:
+        - podSelector:
+            matchLabels:
+              app: mysql
+      ports:
+        - protocol: TCP
+          port: 3306

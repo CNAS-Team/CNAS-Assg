@@ -1,0 +1,34 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-run-as-non-root
+  annotations:
+    policies.kyverno.io/title: Require Run As Non-Root
+    policies.kyverno.io/category: Pod Security
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: >-
+      Containers must not run as the root user (UID 0). Running as root
+      grants unnecessary privileges and increases the blast radius of a
+      container escape. This policy ensures all containers in the cnas
+      namespace declare runAsNonRoot: true or a runAsUser > 0.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: check-run-as-non-root
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - cnas
+      validate:
+        message: >-
+          Containers in namespace 'cnas' must set securityContext.runAsNonRoot: true
+          or securityContext.runAsUser > 0. Do not run containers as root.
+        pattern:
+          spec:
+            containers:
+              - securityContext:
+                  runAsNonRoot: "true"

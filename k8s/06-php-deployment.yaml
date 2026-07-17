@@ -18,6 +18,10 @@ spec:
       labels:
         app: php-app
     spec:
+      # Dedicated ServiceAccount with no extra permissions
+      serviceAccountName: php-app-sa
+      securityContext:
+        fsGroup: 33
       # Init containers run before the main app container starts
       initContainers:
         # Wait for MySQL to be ready before starting PHP app
@@ -33,6 +37,12 @@ spec:
                 sleep 3;
               done;
               echo "MySQL is ready! Proceeding to start PHP app."
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           resources:
             requests:
               cpu: "50m"
@@ -53,6 +63,12 @@ spec:
                 sleep 2;
               done;
               echo "Database schema initialized successfully."
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           resources:
             requests:
               cpu: "50m"
@@ -84,6 +100,13 @@ spec:
           image: jqii/cnas-php-app:latest
           ports:
             - containerPort: 80
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 33
+            runAsGroup: 33
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           env:
             - name: DB_HOST
               valueFrom:
