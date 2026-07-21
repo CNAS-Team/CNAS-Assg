@@ -8,9 +8,9 @@ A containerized PHP web application with MySQL database, deployed on Kubernetes 
 - [Docker Implementation](#docker-implementation)
 - [Local Development](#local-development)
 - [Kubernetes Deployment](#kubernetes-deployment)
-- [CI/CD Pipeline](#cicd-pipeline)
-- [Security](#security)
-- [Team Members](#team-members)
+- [CI/CD Pipeline & DevSecOps](#cicd-pipeline--devsecops)
+- [Security & Compliance](#security--compliance)
+- [Team Roles & Ownership](#team-roles--ownership)
 
 ---
 
@@ -51,11 +51,13 @@ A containerized PHP web application with MySQL database, deployed on Kubernetes 
 │  │   └──────────────────────────────────┘          │  │
 │  └──────────────────────────────────────────────────┘  │
 │                                                         │
-│  Supporting Components:                                │
+│  Supporting & Security Components:                      │
 │  • HPA (Horizontal Pod Autoscaler)                    │
 │  • PDB (Pod Disruption Budget)                        │
 │  • ConfigMaps & Secrets                               │
 │  • Kyverno Policy Engine                              │
+│  • NetworkPolicies (Pod-to-Pod isolation)               │
+│  • Role-Based Access Control (RBAC)                     │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -71,7 +73,8 @@ A containerized PHP web application with MySQL database, deployed on Kubernetes 
 - **Git**
 
 ### Optional Tools
-- Jenkins (for CI/CD)
+- Jenkins (for CI/CD pipeline)
+- Trivy (for vulnerability scanning)
 - Kyverno (for policy enforcement)
 - Helm (for package management)
 
@@ -291,46 +294,22 @@ kubectl exec -it -n cnas mysql-0 -- mysql -u appuser -p mydb
 
 ---
 
-## 🔄 CI/CD Pipeline
+## 🔄 CI/CD Pipeline & DevSecOps
 
-The project includes a Jenkins pipeline (`Jenkinsfile`) with the following stages:
+The project uses an automated Jenkins Pipeline (`Jenkinsfile`) designed to enforce security controls, vulnerability checks, dynamic tag deployment, and automated rollbacks.
 
 ### Pipeline Stages:
 1. **Checkout** - Clone Git repository
-2. **Build Docker Image** - Build containerized application
-3. **Push to Registry** - Upload to Docker Hub
-4. **Deploy to Kubernetes** - Apply manifests
-5. **Verify Deployment** - Health checks
-
-### Running the Pipeline:
-
-```groovy
-// Jenkinsfile overview
-pipeline {
-    agent any
-    stages {
-        stage('Build') {
-            steps {
-                sh 'docker build -t cnas-php-app:${BUILD_NUMBER} .'
-            }
-        }
-        stage('Push') {
-            steps {
-                sh 'docker push yourdockerhub/cnas-php-app:${BUILD_NUMBER}'
-            }
-        }
-        stage('Deploy') {
-            steps {
-                sh 'kubectl apply -f k8s/'
-            }
-        }
-    }
-}
-```
+2. **Scan Repository** - Static file vulnerability scanning with Trivy
+3. **Build Docker Image** - Build containerized application with dynamic build tag
+4. **Scan Container Image** - Container layer security scanning with Trivy
+5. **Push to Registry** - Upload tagged image to Docker Hub
+6. **Deploy to Kubernetes** - Apply Kyverno policies and update manifests
+7. **Verify Deployment & Post Cleanup** - Verify status and execute cleanWs() workspace isolation
 
 ---
 
-## 🔒 Security
+## 🔒 Security & Compliance
 
 See [DOCKER-SECURITY.md](./DOCKER-SECURITY.md) for comprehensive security documentation.
 
@@ -338,7 +317,9 @@ See [DOCKER-SECURITY.md](./DOCKER-SECURITY.md) for comprehensive security docume
 - ✅ Non-root container execution
 - ✅ Secret management via Kubernetes Secrets
 - ✅ Resource limits to prevent resource exhaustion
+- ✅ Vulnerability scanning via Trivy (FS & Container scanning)
 - ✅ Network policies for traffic control
+- ✅ Kubernetes RBAC for deployment isolation
 - ✅ Kyverno policies for compliance enforcement
 - ✅ Health checks for automatic recovery
 - ✅ Minimal base images to reduce attack surface
@@ -360,15 +341,16 @@ kubectl get pods -n cnas -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.s
 
 ---
 
-## 👥 Team Members
+## 👥 Team Roles & Ownership
 
 **Class:** T01 | **Team:** 02
 
-| ID | Name | Email | Role |
-|----|------|-------|------|
-| 1 | Person 1 | person1@example.com | Docker Implementation |
-| 2 | Person 2 | person2@example.com | Kubernetes Configuration |
-| 3 | Person 3 | person3@example.com | CI/CD Pipeline |
+| Person | Role | Core Ownership |
+| :--- | :--- | :--- |
+| **Ee Ting Li** | Application + Docker Engineer | PHP app, MySQL, Dockerfile, Docker Compose, Docker Hub |
+| **Lau Jia Qi** | Kubernetes Platform Engineer | Multi-node cluster, Deployments, Services, Ingress, HPA, Probes, PV/PVC |
+| **Chee Hsiao En Samuela** | DevSecOps + Security Engineer | GitHub Actions/Jenkins, Trivy, RBAC, NetworkPolicy, Secrets, Secure Pipeline |
+| **Janice Oh Shi Ting** | Monitoring + Testing + Report | Prometheus, Grafana, Loki/Promtail, Testing evidence, Demo script, Report coordination |
 
 ---
 
