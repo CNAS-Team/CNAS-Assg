@@ -149,7 +149,7 @@ These boundaries are important in the report: the web tier demonstrates redundan
 
 | Member | Primary area |
 |---|---|
-| Ee Ting Li | Application, MySQL, and Docker containerisation |
+| Ee Ting Li | Application, PHP, MySQL, and Docker containerisation |
 | Lau Jia Qi | Kubernetes platform, services, gateway, scaling, and storage |
 | Chee Hsiao En Samuela | CI/CD, security, policies, and secret handling |
 | Janice Oh Shi Ting | Observability, validation evidence, demonstration, and report coordination |
