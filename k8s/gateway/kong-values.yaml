@@ -19,6 +19,8 @@ controller:
         enabled: true
     admissionWebhook:
       failurePolicy: Fail
+    labels:
+      cnas.assg/metrics: kic
     env:
       anonymous_reports: "false"
       gateway_api_controller_name: konghq.com/kic-gateway-controller
@@ -46,6 +48,24 @@ gateway:
     anonymous_reports: "off"
     proxy_access_log: /dev/stdout
     proxy_error_log: /dev/stderr
+  # The status listener is internal to the Kong Pod. The chart-managed
+  # ServiceMonitor scrapes /metrics from this port after Prometheus Operator
+  # CRDs are installed by scripts/Install-Observability.ps1.
+  status:
+    enabled: true
+    http:
+      enabled: true
+      containerPort: 8100
+  serviceMonitor:
+    enabled: true
+    # The platform is installed before Prometheus Operator. On the first Helm
+    # install the chart safely skips this resource; the observability installer
+    # upgrades the release after the CRD exists.
+    trustCRDsExist: false
+    namespace: monitoring
+    interval: 30s
+    labels:
+      app.kubernetes.io/part-of: cnas-observability
   proxy:
     enabled: true
     type: NodePort

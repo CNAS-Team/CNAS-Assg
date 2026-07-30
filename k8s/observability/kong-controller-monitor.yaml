@@ -1,0 +1,21 @@
+# Kong Gateway traffic metrics are supplied by the chart-managed gateway
+# ServiceMonitor. This separate monitor covers KIC reconciliation/configuration
+# metrics from the controller-only Deployment.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kong-ingress-controller
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: cnas-observability
+spec:
+  namespaceSelector:
+    matchNames:
+      - kong
+  selector:
+    matchLabels:
+      cnas.assg/metrics: kic
+  endpoints:
+    - port: cmetrics
+      interval: 30s
+      scrapeTimeout: 10s

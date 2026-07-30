@@ -29,8 +29,10 @@ The installer uses these pinned Helm chart versions:
 |---|---|
 | Prometheus Operator, Prometheus, Alertmanager, Grafana, kube-state-metrics and node-exporter | `prometheus-community/kube-prometheus-stack` `86.0.0` |
 | Loki | `grafana-community/loki` `18.5.1` |
+| Blackbox HTTP/TLS probing | `prometheus-community/prometheus-blackbox-exporter` `11.15.1` |
 | Alloy log collector | Container `grafana/alloy:v1.16.1` |
 | MySQL exporter | Container `prom/mysqld-exporter:v0.19.0` |
+| Redis exporter | Container `oliver006/redis_exporter:v1.84.0` |
 
 Install the stack:
 
@@ -38,7 +40,7 @@ Install the stack:
 .\scripts\Install-Observability.ps1
 ```
 
-The script generates—not commits—random Grafana and MySQL exporter credentials. It creates a least-privilege MySQL monitoring account, deploys the exporters, and waits for readiness.
+The script generates—not commits—random Grafana and MySQL exporter credentials. It creates a least-privilege MySQL monitoring account, deploys the MySQL and Redis exporters, installs the blackbox probes, enables the chart-managed Kong metrics target, and waits for readiness. The Redis exporter reads the existing Redis password from a Secret reference; it does not print or commit the value.
 
 Open Grafana locally:
 
@@ -53,15 +55,13 @@ $encoded = kubectl -n monitoring get secret cnas-grafana-admin -o 'jsonpath={.da
 [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($encoded))
 ```
 
-The dashboard **CNAS Application, Gateway, MySQL and Cluster Overview** covers:
+Grafana provisions three focused dashboards:
 
-- PHP replica availability;
-- PHP CPU and memory usage;
-- desired/current HPA replicas;
-- MySQL availability, connections, query rate, and PVC utilization;
-- consolidated workload logs from Loki.
+- **CNAS Platform Overview**: application/Gateway/MySQL/Redis availability, PHP replicas and HPA, workload resource ratios, node CPU/memory, restarts, and platform logs;
+- **CNAS Gateway and Load Balancing**: request rate, HTTP status and 429/5xx signals, p95 request/Kong/upstream latency, bandwidth, KIC configuration results, per-Kong-instance traffic, and per-PHP-Pod access-log distribution;
+- **CNAS MySQL and Redis Data Services**: MySQL connection use, QPS, slow/aborted/deadlock events, PVC/backup health, Redis clients/commands/memory/keys/hit ratio/evictions, and data-service logs.
 
-Custom Prometheus rules alert on unavailable PHP replicas, repeated container restarts, prolonged maximum HPA scale and MySQL exporter failure. A safe synthetic drill validates Prometheus rule evaluation and Alertmanager delivery.
+Custom Prometheus rules alert on end-to-end outages, certificate expiry, Kong error/latency and configuration failures, exporter versus target failure, MySQL capacity/storage/backup problems, Redis memory/session risks, workload restarts/HPA failures, and node pressure. A safe synthetic drill validates Prometheus rule evaluation and Alertmanager delivery.
 
 ## 3. Baseline validation
 
@@ -82,7 +82,7 @@ Expected results:
 | Gateway-to-backend load balancing | 50 uniquely marked HTTPS requests appear in Apache access logs for at least two distinct PHP Pods |
 | MySQL isolation | An untrusted Pod cannot connect to port 3306 |
 | Admission negative tests | Latest-tag and resource fixtures are rejected by their named Kyverno policies; overlapping root/privileged controls may be rejected earlier by Pod Security Admission |
-| Observability | Prometheus, Alertmanager, Alloy, and MySQL exporter are ready |
+| Observability | Prometheus, Alertmanager, Alloy, blackbox exporter, MySQL exporter, and Redis exporter are ready; live probes, Kong traffic/KIC, and four node-exporter series pass minimum-value checks |
 
 Admission tests use server-side dry runs, so deliberately invalid Pods are never created. The script reports whether Kyverno or Pod Security Admission performed the rejection. The normal smoke, load, and continuity Jobs include non-root security contexts, dropped capabilities, immutable image tags, and CPU/memory limits.
 
@@ -199,7 +199,7 @@ Before adding evidence to the assignment report:
 | Scalability | `hpa-history.csv`, HPA events, and Grafana HPA/CPU panels |
 | Resilience | failover metadata, replacement UID, recovery time, and zero-failure request log |
 | Security | Kyverno rejection messages, NetworkPolicy denial, TLS gateway result, and image scan output |
-| Monitoring | Grafana dashboard panels, Prometheus target health, and tested alerts |
+| Monitoring | Three Grafana dashboards, Prometheus target health, blackbox/Kong/MySQL/Redis/node queries, and tested alerts |
 | Auditing | Loki logs/events, Jenkins build record, immutable image digest, evidence metadata and hashes |
 | Data recovery | logical backup file, size, SHA-256 digest and CronJob history |
 | CI/CD | Jenkins log containing rollout and `ci-smoke-test.sh` CRUD pass |
@@ -209,7 +209,13 @@ Before adding evidence to the assignment report:
 - Prometheus, Alertmanager, Loki, and Grafana use ephemeral local storage to conserve laptop resources; their data does not survive cluster recreation.
 - Loki authentication is disabled inside the local cluster.
 - The gateway probe accepts the Kind self-signed certificate.
-- Prometheus and Loki run one replica each.
+- The continuous Gateway probe starts inside the cluster. Baseline validation
+  and load tests exercise the host-facing Kind port mapping separately; the
+  continuous probe does not detect a host firewall or port-mapping failure.
+- Alertmanager has no external notification receiver until a secret-backed receiver is configured and tested; alerts remain visible in its UI.
+- The Redis exporter reuses the coursework Redis password. Production should create a dedicated least-privilege Redis ACL user.
+- Redis session data uses ephemeral storage and is lost if its Pod is replaced.
+- Prometheus, Alertmanager, Loki, MySQL, and Redis run one replica each.
 - MySQL remains a single-replica data-tier failure point unless a replicated database or managed service is added.
 - Kind worker nodes are containers on one machine, so they do not protect against host failure.
 

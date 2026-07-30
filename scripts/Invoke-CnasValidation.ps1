@@ -77,6 +77,70 @@ function Assert-PolicyRejection {
     }
 }
 
+function Assert-PrometheusQuery {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][string]$Query,
+        [double]$Minimum = 1,
+        [int]$Attempts = 18,
+        [int]$DelaySeconds = 5
+    )
+
+    $encoded = [System.Uri]::EscapeDataString($Query)
+    $path = "/api/v1/namespaces/monitoring/services/http:monitoring-prometheus:9090/proxy/api/v1/query?query=$encoded"
+    $lastObservation = "no result"
+
+    for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+        $previousPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = "Continue"
+            $rawResponse = & kubectl get --raw $path 2>$null
+            $exitCode = $LASTEXITCODE
+        }
+        finally {
+            $ErrorActionPreference = $previousPreference
+        }
+
+        if ($exitCode -eq 0 -and $rawResponse) {
+            try {
+                $response = (($rawResponse | ForEach-Object { $_.ToString() }) -join "") | ConvertFrom-Json
+                $results = @($response.data.result)
+                if ($response.status -eq "success" -and $results.Count -gt 0) {
+                    $values = @(
+                        foreach ($result in $results) {
+                            [double]::Parse(
+                                [string]$result.value[1],
+                                [System.Globalization.CultureInfo]::InvariantCulture
+                            )
+                        }
+                    )
+                    $observedMinimum = ($values | Measure-Object -Minimum).Minimum
+                    $lastObservation = "minimum value $observedMinimum"
+                    if ($observedMinimum -ge $Minimum) {
+                        Write-Host "PASS: $Name ($lastObservation)." -ForegroundColor Green
+                        return
+                    }
+                }
+                else {
+                    $lastObservation = "empty Prometheus result"
+                }
+            }
+            catch {
+                $lastObservation = "invalid Prometheus response: $($_.Exception.Message)"
+            }
+        }
+        else {
+            $lastObservation = "Prometheus API request failed"
+        }
+
+        if ($attempt -lt $Attempts) {
+            Start-Sleep -Seconds $DelaySeconds
+        }
+    }
+
+    throw "Prometheus check '$Name' did not reach the required value $Minimum after $Attempts attempts ($lastObservation). Query: $Query"
+}
+
 if (-not (Get-Command kubectl -ErrorAction SilentlyContinue)) {
     throw "kubectl is required."
 }
@@ -109,9 +173,22 @@ else {
 }
 
 Write-Host "`nChecking observability resources..." -ForegroundColor Cyan
-Invoke-Checked -Command "kubectl" -Arguments @("-n", "monitoring", "get", "prometheus,alertmanager,probes,prometheusrules")
+Invoke-Checked -Command "kubectl" -Arguments @("-n", "monitoring", "get", "prometheus,alertmanager,probes,prometheusrules,servicemonitors")
 Invoke-Checked -Command "kubectl" -Arguments @("-n", "monitoring", "rollout", "status", "deployment/alloy", "--timeout=180s")
+Invoke-Checked -Command "kubectl" -Arguments @("-n", "monitoring", "rollout", "status", "deployment/blackbox-exporter", "--timeout=180s")
 Invoke-Checked -Command "kubectl" -Arguments @("-n", "cnas", "rollout", "status", "deployment/mysql-exporter", "--timeout=180s")
+Invoke-Checked -Command "kubectl" -Arguments @("-n", "cnas", "rollout", "status", "deployment/redis-exporter", "--timeout=180s")
 
-Write-Host "`nPASS: readiness, HTTP routing, security controls, and observability checks completed." -ForegroundColor Green
+Write-Host "`nChecking live Prometheus series..." -ForegroundColor Cyan
+Assert-PrometheusQuery -Name "blackbox exporter self-monitor" -Query 'max(up{namespace="monitoring",service="blackbox-exporter"})'
+Assert-PrometheusQuery -Name "internal application probe" -Query 'min(probe_success{service="php-app"})'
+Assert-PrometheusQuery -Name "HTTPS gateway probe" -Query 'min(probe_success{service="gateway"})'
+Assert-PrometheusQuery -Name "MySQL target health" -Query 'max(mysql_up{namespace="cnas"})'
+Assert-PrometheusQuery -Name "Redis target health" -Query 'max(redis_up{namespace="cnas"})'
+Assert-PrometheusQuery -Name "Kong metrics target" -Query 'count(kong_node_info{namespace="kong"})'
+Assert-PrometheusQuery -Name "Kong traffic metrics" -Query 'count(kong_http_requests_total{namespace="kong"})'
+Assert-PrometheusQuery -Name "KIC configuration metrics" -Query 'count(ingress_controller_configuration_push_count{namespace="kong"})'
+Assert-PrometheusQuery -Name "Kind node exporters" -Query 'count(node_uname_info)' -Minimum 4
+
+Write-Host "`nPASS: readiness, HTTP routing, security controls, exporters, probes, Kong traffic metrics, and node monitoring completed." -ForegroundColor Green
 Write-Host "Run Invoke-LoadTest.ps1 and Invoke-FailoverTest.ps1 -Execute separately for scaling and resilience evidence."

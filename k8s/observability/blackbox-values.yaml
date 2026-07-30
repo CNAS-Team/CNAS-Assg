@@ -1,0 +1,65 @@
+# Pinned by scripts/Install-Observability.ps1.
+fullnameOverride: blackbox-exporter
+
+commonLabels:
+  cnas.assg/role: blackbox
+  app.kubernetes.io/part-of: cnas-observability
+
+config:
+  modules:
+    cnas_internal_http:
+      prober: http
+      timeout: 5s
+      http:
+        method: GET
+        preferred_ip_protocol: ip4
+        follow_redirects: false
+        valid_status_codes:
+          - 200
+    cnas_gateway_https:
+      prober: http
+      timeout: 5s
+      http:
+        method: GET
+        preferred_ip_protocol: ip4
+        follow_redirects: false
+        fail_if_not_ssl: true
+        valid_status_codes:
+          - 200
+        headers:
+          Host: cnas.local
+        tls_config:
+          # Kind uses the repository's 30-day self-signed cnas.local
+          # demonstration certificate. Production must use a trusted
+          # certificate and must set this to false.
+          insecure_skip_verify: true
+
+serviceMonitor:
+  selfMonitor:
+    enabled: true
+    labels:
+      app.kubernetes.io/part-of: cnas-observability
+    interval: 30s
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  runAsGroup: 65534
+  fsGroup: 65534
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
