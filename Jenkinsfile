@@ -18,13 +18,16 @@ pipeline {
 
     environment {
         DOCKER_REGISTRY_CREDENTIALS_ID = 'docker-hub-credentials'
-        DOCKER_IMAGE_NAME = 'jqii/cnas-php-app'
+        DOCKER_IMAGE_NAME = 'sinoceratops/cnas-php-app'
 
         KUBERNETES_CREDENTIALS_ID = 'kubeconfig-cluster-secret'
 
         DB_CREDENTIALS_ID = 'cnas-db-credentials'
         MYSQL_ROOT_PASSWORD_CREDENTIALS_ID = 'cnas-mysql-root-password'
         REDIS_PASSWORD_CREDENTIALS_ID = 'cnas-redis-password'
+
+        // The Jenkins credential ID where you stored your Cosign private key
+        COSIGN_KEY_CREDENTIALS_ID = 'cosign-private-key'
 
         K8S_NAMESPACE = 'cnas'
         DEPLOYMENT_NAME = 'php-app'
@@ -52,6 +55,17 @@ pipeline {
                 sh '''
                     set -eu
                     test -z "$(git status --porcelain)"
+                '''
+            }
+        }
+
+        stage('Deep Secret Scan (Gitleaks)') {
+            steps {
+                echo "=== Scanning Git History for Leaked Secrets ==="
+                sh '''
+                    docker run --rm \
+                      -v "$WORKSPACE:/path" \
+                      zricethezav/gitleaks:latest detect --source="/path" -v
                 '''
             }
         }
@@ -86,28 +100,39 @@ pipeline {
             }
         }
 
-        stage('Repository Security Scan') {
-    steps {
-        sh '''
-            set -eu
+        stage('SAST Code Scanning (Semgrep)') {
+            steps {
+                echo "=== Scanning PHP Source Code for Vulnerabilities ==="
+                sh '''
+                    docker run --rm \
+                      -v "$WORKSPACE:/src" \
+                      returntocorp/semgrep semgrep scan --config=p/php /src
+                '''
+            }
+        }
 
-            docker run --rm \
-              --volumes-from "$HOSTNAME" \
-              -w "$WORKSPACE" \
-              aquasec/trivy:latest \
-              fs \
-              --exit-code 1 \
-              --severity HIGH,CRITICAL \
-              --scanners vuln,misconfig,secret \
-              --skip-files tests/k8s/policy-deny-latest.yaml \
-              --skip-files tests/k8s/policy-disallow-privileged.yaml \
-              --skip-files tests/k8s/policy-require-nonroot.yaml \
-              --skip-files tests/k8s/policy-require-resources.yaml \
-              --no-progress \
-              .
-        '''
-    }
-}
+        stage('Repository Security Scan (Trivy)') {
+            steps {
+                sh '''
+                    set -eu
+
+                    docker run --rm \
+                    --volumes-from "$HOSTNAME" \
+                    -w "$WORKSPACE" \
+                    aquasec/trivy:latest \
+                    fs \
+                    --exit-code 1 \
+                    --severity HIGH,CRITICAL \
+                    --scanners vuln,misconfig,secret \
+                    --skip-files tests/k8s/policy-deny-latest.yaml \
+                    --skip-files tests/k8s/policy-disallow-privileged.yaml \
+                    --skip-files tests/k8s/policy-require-nonroot.yaml \
+                    --skip-files tests/k8s/policy-require-resources.yaml \
+                    --no-progress \
+                    .
+                '''
+            }
+        }
 
         stage('Build and Verify Image') {
             steps {
@@ -205,6 +230,27 @@ pipeline {
             }
         }
 
+        stage('Sign Container Image (Cosign)') {
+            steps {
+                echo "=== Cryptographically Signing Container Image ==="
+                
+                // Dynamically download Cosign to bypass Windows container limitations
+                sh '''
+                    curl -sL -o cosign "https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64"
+                    chmod +x cosign
+                '''
+
+                // Pull the private key from Jenkins credentials and sign the image
+                withCredentials([file(credentialsId: env.COSIGN_KEY_CREDENTIALS_ID, variable: 'COSIGN_KEY')]) {
+                    script {
+                        docker.withRegistry('', env.DOCKER_REGISTRY_CREDENTIALS_ID) {
+                            sh "./cosign sign --key \$COSIGN_KEY -y ${env.DOCKER_IMAGE_NAME}:${env.IMAGE_TAG}"
+                        }
+                    }
+                }
+            }
+        }
+
         stage('Deploy and Verify') {
             steps {
                 withKubeConfig([
@@ -265,7 +311,7 @@ kind: Kustomization
 resources:
   - ../k8s
 images:
-  - name: jqii/cnas-php-app
+  - name: sinoceratops/cnas-php-app
     newName: ${env.DOCKER_IMAGE_NAME}
     newTag: ${env.IMAGE_TAG}
 """
