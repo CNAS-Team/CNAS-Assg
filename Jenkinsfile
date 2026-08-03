@@ -231,6 +231,10 @@ pipeline {
         }
 
         stage('Sign Container Image (Cosign)') {
+            environment {
+                // This guarantees the variable is set and passed to Cosign
+                COSIGN_PASSWORD = '' 
+            }
             steps {
                 echo "=== Cryptographically Signing Container Image ==="
                 
@@ -243,7 +247,6 @@ pipeline {
                 // Pull the private key from Jenkins credentials and sign the image
                 withCredentials([
                     file(credentialsId: env.COSIGN_KEY_CREDENTIALS_ID, variable: 'COSIGN_KEY'),
-                    string(credentialsId: 'cosign-password', variable: 'COSIGN_PASSWORD')
                     ]) {
                     script {
                         docker.withRegistry('', env.DOCKER_REGISTRY_CREDENTIALS_ID) {
