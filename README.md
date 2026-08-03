@@ -110,7 +110,7 @@ The [Jenkins guide](docs/CI-CD.md) lists agent prerequisites, exact credential I
 ## Security highlights
 
 - No populated Secret manifest is committed.
-- PHP runs as www-data on unprivileged port 8080.
+- PHP runs as www-data on unprivileged port 8080. 
 - Mutation routes require POST and a valid CSRF token.
 - Database access uses prepared statements and strict validation.
 - Browser output is encoded and security headers include CSP.
