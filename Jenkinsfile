@@ -241,7 +241,10 @@ pipeline {
                 '''
 
                 // Pull the private key from Jenkins credentials and sign the image
-                withCredentials([file(credentialsId: env.COSIGN_KEY_CREDENTIALS_ID, variable: 'COSIGN_KEY')]) {
+                withCredentials([
+                    file(credentialsId: env.COSIGN_KEY_CREDENTIALS_ID, variable: 'COSIGN_KEY'),
+                    string(credentialsId: 'cosign-password', variable: 'COSIGN_PASSWORD')
+                    ]) {
                     script {
                         docker.withRegistry('', env.DOCKER_REGISTRY_CREDENTIALS_ID) {
                             sh "./cosign sign --key \$COSIGN_KEY -y ${env.DOCKER_IMAGE_NAME}:${env.IMAGE_TAG}"
