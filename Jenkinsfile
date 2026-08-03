@@ -246,7 +246,7 @@ pipeline {
                     ]) {
                     script {
                         docker.withRegistry('', env.DOCKER_REGISTRY_CREDENTIALS_ID) {
-                            sh "COSIGN_PASSWORD="" ./cosign sign --key \$COSIGN_KEY -y ${env.DOCKER_IMAGE_NAME}:${env.IMAGE_TAG}"
+                            sh 'COSIGN_PASSWORD="" ./cosign sign --key \$COSIGN_KEY -y ${env.DOCKER_IMAGE_NAME}:${env.IMAGE_TAG}'
                         }
                     }
                 }
