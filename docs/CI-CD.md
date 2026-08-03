@@ -76,7 +76,7 @@ ngrok http 8080
 ### 2. Configure GitHub
 Once the tunnel is active, register the generated public URL with GitHub:
 1. Navigate to the GitHub repository Settings > Webhooks. 
-2. Add or edit a webhook.
+2. Add or edit a webhook. 
 3. Set the Payload URL to the ngrok forwarding address appended with the Jenkins webhook endpoint (e.g., https://<ngrok-id>.ngrok-free.app/github-webhook/).
 4. Set the Content type to application/json.
 5. Save the webhook to enable automated trigger events.
