@@ -231,10 +231,6 @@ pipeline {
         }
 
         stage('Sign Container Image (Cosign)') {
-            environment {
-                // This guarantees the variable is set and passed to Cosign
-                COSIGN_PASSWORD = '' 
-            }
             steps {
                 echo "=== Cryptographically Signing Container Image ==="
                 
@@ -250,7 +246,7 @@ pipeline {
                     ]) {
                     script {
                         docker.withRegistry('', env.DOCKER_REGISTRY_CREDENTIALS_ID) {
-                            sh "./cosign sign --key \$COSIGN_KEY -y ${env.DOCKER_IMAGE_NAME}:${env.IMAGE_TAG}"
+                            sh "COSIGN_PASSWORD="" ./cosign sign --key \$COSIGN_KEY -y ${env.DOCKER_IMAGE_NAME}:${env.IMAGE_TAG}"
                         }
                     }
                 }
