@@ -105,7 +105,7 @@ The collector stores command outputs, timestamps, exit codes, metadata, and SHA-
 
 ## CI/CD
 
-The [Jenkins guide](docs/CI-CD.md) lists agent prerequisites, exact credential IDs, pipeline gates, deployment traceability, and rollback boundaries. Jenkins builds one tag in the form build-number plus Git SHA, scans it, creates a CycloneDX SBOM, pushes that exact image, and verifies that exact image after rollout. It never publishes latest.
+The [Jenkins guide](docs/CI-CD.md) lists agent prerequisites, exact credential IDs, pipeline gates, deployment traceability, and rollback boundaries. Jenkins builds one tag in the form build-number plus Git SHA, scans it, creates a CycloneDX SBOM, pushes that exact image, and verifies that exact image after rollout. It never publishes latest. 
 
 ## Security highlights
 
