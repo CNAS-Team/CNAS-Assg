@@ -85,7 +85,7 @@ Note: If utilizing the free tier of ngrok, the URL will change each time the tun
 
 ## Traceability evidence
 
-Use these commands during the demonstration:
+Use these commands during the demonstration: 
 
 ```sh
 kubectl get deployment php-app -n cnas \
