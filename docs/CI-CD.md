@@ -81,7 +81,7 @@ Once the tunnel is active, register the generated public URL with GitHub:
 4. Set the Content type to application/json.
 5. Save the webhook to enable automated trigger events.
 
-Note: If utilizing the free tier of ngrok, the URL will change each time the tunnel is restarted and must be manually updated in GitHub.
+Note: If utilizing the free tier of ngrok, the URL will change each time the tunnel is restarted and must be manually updated in GitHub. 
 
 ## Traceability evidence
 
