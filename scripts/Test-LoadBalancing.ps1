@@ -71,7 +71,7 @@ $observedRequests = ($distribution | Measure-Object -Property markedRequests -Su
 @(
     "startedUtc=$($started.ToString('o'))",
     "marker=$marker",
-    "gateway=https://kong-gateway-proxy.kong.svc.cluster.local/",
+    "gateway=https://kong-kong-proxy.kong.svc.cluster.local/",
     "requested=50",
     "observedInAccessLogs=$observedRequests",
     "distinctPhpBackends=$reachedBackends"
