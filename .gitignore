@@ -52,3 +52,6 @@ test-results/
 evidence/
 sbom*.json
 rendered-kubernetes.yaml
+
+#Ngrok traffic policy files
+ngrokpolicy.yaml
