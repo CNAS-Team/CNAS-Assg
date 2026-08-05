@@ -3,7 +3,7 @@ set -euo pipefail
 
 NAMESPACE="${NAMESPACE:-cnas}"
 SERVICE_URL="${SERVICE_URL:-http://php-service.cnas.svc.cluster.local}"
-GATEWAY_URL="${GATEWAY_URL:-https://kong-kong-proxy.kong.svc.cluster.local/}"
+GATEWAY_URL="${GATEWAY_URL:-http://kong-kong-proxy.kong.svc.cluster.local/}"
 GATEWAY_HOST="${GATEWAY_HOST:-cnas.local}"
 ROLLOUT_TIMEOUT="${ROLLOUT_TIMEOUT:-180s}"
 

@@ -31,7 +31,7 @@ spec:
           imagePullPolicy: IfNotPresent
           env:
             - name: HTTP_URL
-              value: https://kong-kong-proxy.kong.svc.cluster.local/
+              value: http://kong-kong-proxy.kong.svc.cluster.local/
             - name: HTTPS_URL
               value: https://kong-kong-proxy.kong.svc.cluster.local/livez.php
           command:
