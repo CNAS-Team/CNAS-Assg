@@ -35,7 +35,7 @@ spec:
             - name: MARKER
               value: __MARKER__
             - name: GATEWAY_URL
-              value: http://kong-kong-proxy.kong.svc.cluster.local/
+              value: https://kong-kong-proxy.kong.svc.cluster.local/
           command:
             - /bin/sh
             - -ec

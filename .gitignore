@@ -56,3 +56,5 @@ rendered-kubernetes.yaml
 
 #Ngrok traffic policy files
 ngrokpolicy.yaml
+tls.key
+tls.key
