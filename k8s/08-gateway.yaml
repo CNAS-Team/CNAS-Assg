@@ -51,7 +51,7 @@ metadata:
 spec:
   parentRefs:
     - name: cnas-gateway
-      sectionName: http
+      sectionName: https
   hostnames:
     - cnas.local
   rules:
