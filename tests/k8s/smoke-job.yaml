@@ -41,7 +41,7 @@ spec:
               echo "Checking Gateway API route..."
               curl --fail --silent --show-error --insecure --max-time 10 \
                 -H "Host: cnas.local" \
-                http://kong-kong-proxy.kong.svc.cluster.local/ \
+                https://kong-kong-proxy.kong.svc.cluster.local/ \
                 > /tmp/gateway.html
               grep -q "Team Members" /tmp/gateway.html
               echo "PASS: Service and gateway returned the application."
