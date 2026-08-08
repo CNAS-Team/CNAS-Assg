@@ -1,16 +1,18 @@
-# Run each schema change as a new, immutable Job. Version 2 creates the schema
-# for a fresh database and safely upgrades databases retained on an old PVC.
+# Run each schema change as a new, immutable Job. Version 3 retries the schema
+# migration after v2 could expire while a fresh MySQL Pod was still starting.
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: db-migration-v2
+  name: db-migration-v3
   namespace: cnas
   labels:
     app: db-migration
-    app.kubernetes.io/version: v2
+    app.kubernetes.io/version: v3
 spec:
   backoffLimit: 6
-  activeDeadlineSeconds: 300
+  # Image pulls and first-time MySQL initialization can exceed five minutes on
+  # a fresh Kind cluster. Keep retrying until the database is actually ready.
+  activeDeadlineSeconds: 900
   template:
     metadata:
       labels:
@@ -53,12 +55,12 @@ spec:
 
               case "$duplicate_groups" in
                 ''|*[!0-9]*)
-                  echo "Migration v2 could not verify email uniqueness; refusing to continue." >&2
+                  echo "Migration v3 could not verify email uniqueness; refusing to continue." >&2
                   exit 1
                   ;;
               esac
               if [ "$duplicate_groups" -ne 0 ]; then
-                echo "Migration v2 blocked: $duplicate_groups duplicate email group(s) exist. Resolve duplicates, delete job/db-migration-v2 if it has failed, then reapply." >&2
+                echo "Migration v3 blocked: $duplicate_groups duplicate email group(s) exist. Resolve duplicates, delete job/db-migration-v3 if it has failed, then reapply." >&2
                 exit 1
               fi
 
@@ -82,6 +84,8 @@ spec:
               EXECUTE migration_statement;
               DEALLOCATE PREPARE migration_statement;
               SQL
+
+              echo "Migration v3 completed successfully."
           env:
             - name: MYSQL_DATABASE
               valueFrom:
