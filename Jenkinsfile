@@ -328,9 +328,9 @@ images:
 
                         kubectl wait \
                           --for=condition=complete \
-                          job/db-migration-v2 \
+                          job/db-migration-v3 \
                           -n "$K8S_NAMESPACE" \
-                          --timeout=5m
+                          --timeout=15m
 
                         kubectl annotate \
                           deployment "$DEPLOYMENT_NAME" \
