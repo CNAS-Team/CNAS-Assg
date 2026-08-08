@@ -27,7 +27,7 @@ spec:
     - name: https
       protocol: HTTPS
       port: 443
-      hostname: cnas.local
+      #hostname: cnas.local
       tls:
         mode: Terminate
         certificateRefs:

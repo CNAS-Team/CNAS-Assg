@@ -1,3 +1,19 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-pvc
+  namespace: cnas
+  labels:
+    app: redis
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/part-of: cnas-assignment
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -49,6 +65,9 @@ spec:
               bind 0.0.0.0
               protected-mode yes
               dir /data
+              appendonly yes
+              appendfsync everysec
+              save 60 1000
               # Keep exporter memory ratios meaningful and prevent silent
               # eviction of shared PHP sessions under memory pressure.
               maxmemory 96mb
@@ -107,8 +126,8 @@ spec:
               mountPath: /tmp
       volumes:
         - name: redis-data
-          emptyDir:
-            sizeLimit: 256Mi
+          persistentVolumeClaim:
+            claimName: redis-pvc
         - name: tmp
           emptyDir:
             sizeLimit: 32Mi

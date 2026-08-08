@@ -1,7 +1,7 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: cnas-platform-alerts
+  name: cnas-application-alerts
   namespace: monitoring
   labels:
     app.kubernetes.io/part-of: cnas-observability

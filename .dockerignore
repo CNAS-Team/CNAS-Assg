@@ -15,6 +15,9 @@ README.md
 Jenkinsfile
 .jenkins/
 
+# Ngrok traffic policy files
+ngrokpolicy.yaml
+
 # IDE and editor files
 .vscode/
 .idea/

@@ -109,12 +109,12 @@ The collector stores command outputs, timestamps, exit codes, metadata, and SHA-
 
 ## CI/CD
 
-The [Jenkins guide](docs/CI-CD.md) lists agent prerequisites, exact credential IDs, pipeline gates, deployment traceability, and rollback boundaries. Jenkins builds one tag in the form build-number plus Git SHA, scans it, creates a CycloneDX SBOM, pushes that exact image, and verifies that exact image after rollout. It never publishes latest.
+The [Jenkins guide](docs/CI-CD.md) lists agent prerequisites, exact credential IDs, pipeline gates, deployment traceability, and rollback boundaries. Jenkins builds one tag in the form build-number plus Git SHA, scans it, creates a CycloneDX SBOM, pushes that exact image, and verifies that exact image after rollout. It never publishes latest. 
 
 ## Security highlights
 
 - No populated Secret manifest is committed.
-- PHP runs as www-data on unprivileged port 8080.
+- PHP runs as www-data on unprivileged port 8080. 
 - Mutation routes require POST and a valid CSRF token.
 - Database access uses prepared statements and strict validation.
 - Browser output is encoded and security headers include CSP.
@@ -129,7 +129,8 @@ This is an honest single-laptop coursework environment, not a production claim:
 - Kind nodes are containers on one physical host.
 - MySQL and Redis each have one replica.
 - local persistent volumes are not multi-zone storage;
-- Redis session data is ephemeral if its Pod is replaced;
+- Redis session data survives Pod replacement on a local `ReadWriteOnce` PVC,
+  but the single replica and local volume do not provide node or host HA;
 - local TLS is self-signed;
 - Prometheus, Loki, and Grafana use low-resource ephemeral storage;
 - image signing and admission-time signature verification remain stretch improvements.

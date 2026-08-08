@@ -90,7 +90,7 @@ spec:
       containers:
         - name: php-app
           # Jenkins replaces this bootstrap tag with the immutable build tag.
-          image: jqii/cnas-php-app:bootstrap
+          image: sinoceratops/cnas-php-app:bootstrap
           imagePullPolicy: IfNotPresent
 
           ports:

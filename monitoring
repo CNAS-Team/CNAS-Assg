@@ -1,0 +1,171 @@
+# Monitoring Architecture
+
+The CNAS monitoring architecture provides centralised metrics, alerting,
+dashboard visualisation and log management for the Kubernetes application. It
+covers end-to-end application and Gateway availability, scalability, resource
+utilisation, MySQL and Redis health, Kubernetes node health, and workload logs.
+
+The deployable configuration and current limitations are documented in
+`k8s/observability/README.md`; the installation and evidence procedure is in
+`docs/DEMO-RUNBOOK.md`.
+
+## Architecture Overview
+
+```text
+                         ┌─────────────────────┐
+                         │   CNAS Application   │
+                         │                     │
+                         │ PHP App │ MySQL │   │
+                         │         │ Redis  │   │
+                         └─────────┬───────────┘
+                                   │
+                    ┌──────────────┴──────────────┐
+                    │                             │
+                 Metrics                         Logs
+                    │                             │
+                    ▼                             ▼
+          ┌─────────────────┐             ┌─────────────┐
+          │ kube-state-     │             │    Alloy    │
+          │ metrics /       │             │             │
+          │ exporters       │             └──────┬──────┘
+          └────────┬────────┘                    │
+                   │                             ▼
+                   ▼                       ┌─────────────┐
+          ┌─────────────────┐              │    Loki     │
+          │   Prometheus    │              │ Log storage │
+          │ Metrics storage │              └──────┬──────┘
+          │ & rule engine   │                     │
+          └────────┬────────┘                     │
+                   │                             │
+            ┌──────┴──────┐                      │
+            │             │                      │
+            ▼             ▼                      ▼
+     ┌─────────────┐ ┌─────────────┐      ┌─────────────┐
+     │ Alertmanager│ │   Grafana   │◄─────│    Loki     │
+     │ Alert       │ │ Dashboards  │      │   Logs      │
+     │ management  │ └─────────────┘      └─────────────┘
+     └─────────────┘
+```
+
+## Components
+
+### Prometheus
+
+Prometheus is the primary metrics collection and storage component. It collects Kubernetes, application, container and database metrics and stores them as time-series data.
+
+The configuration monitors metrics including:
+
+* PHP application replica availability
+* HPA current, desired and maximum replicas
+* PHP container CPU usage
+* PHP container memory usage
+* MySQL availability
+* MySQL persistent volume utilisation
+* Redis availability, capacity, clients, commands, keys and evictions
+* Kong Gateway traffic, errors, bandwidth and latency
+* Kong Ingress Controller configuration health
+* end-to-end HTTP and HTTPS probe results
+* Kubernetes node readiness, pressure, CPU and memory
+
+Prometheus also evaluates the custom CNAS `PrometheusRule` resources to detect application and infrastructure conditions requiring attention.
+
+### kube-state-metrics
+
+`kube-state-metrics` exposes metrics about the state of Kubernetes resources. These metrics are used by Prometheus to monitor objects such as Deployments and Horizontal Pod Autoscalers.
+
+For example, the CNAS monitoring rules use Kubernetes state metrics to compare the desired PHP replica count against the number of available replicas.
+
+### MySQL Exporter
+
+The MySQL exporter exposes MySQL-specific metrics to Prometheus. The `mysql_up` metric is used to determine whether the exporter can successfully communicate with the MySQL database.
+
+The exporter uses a dedicated least-privilege database account rather than the MySQL root account for ongoing monitoring.
+
+### Redis Exporter
+
+The Redis exporter reports availability, memory limits, client and command
+activity, keyspace behaviour, evictions and rejected connections. It reads the
+existing Redis password from a Kubernetes Secret reference and is restricted by
+NetworkPolicy. Redis data is stored on a local `ReadWriteOnce` PVC; it survives
+Pod replacement but is not replicated or protected from volume, node or host
+loss.
+
+### Blackbox Exporter
+
+The blackbox exporter actively probes the application's dependency-aware
+readiness endpoint and the HTTPS Kong route. These probes distinguish
+end-to-end route failure from exporter failure. The local coursework TLS probe
+accepts the repository's self-signed certificate while a separate alert tracks
+certificate expiry.
+
+### Kong and Cluster Metrics
+
+The Kong Gateway Prometheus plugin exposes request rate, status, bandwidth and
+latency metrics. A separate ServiceMonitor scrapes Kong Ingress Controller
+configuration and translation metrics. kubelet/cAdvisor, kube-state-metrics and
+node-exporter provide workload and four-node Kind cluster health signals.
+
+### Alertmanager
+
+Alertmanager processes alerts generated by Prometheus. It provides the alert-management layer of the architecture and allows alerts to be grouped, routed and handled according to their severity.
+
+The custom rules cover end-to-end availability, Gateway errors and latency,
+Kong configuration failures, MySQL and Redis health, backups and storage,
+workload/HPA behaviour, and node readiness or pressure. A separate information
+alert supports synthetic pipeline validation.
+
+### Grafana
+
+Grafana provides the visualisation layer for the monitoring architecture. It uses Prometheus as its metrics data source and Loki as its log data source.
+
+Three focused dashboards cover the platform overview, Gateway and load
+balancing, and MySQL/Redis data services. They include availability, HPA and
+workload resources, node capacity, request/error/latency signals, database and
+session-store health, backup/storage status, and Loki logs.
+
+The dashboards are deployed declaratively through Kubernetes ConfigMaps,
+allowing them to be version-controlled alongside the application configuration.
+
+### Alloy
+
+Alloy is responsible for collecting Kubernetes workload logs and forwarding them to Loki. This separates log collection from log storage and allows logs to be centrally accessed through Grafana.
+
+### Loki
+
+Loki provides centralised log storage for CNAS workload logs. Unlike Prometheus, which stores numerical time-series metrics, Loki stores log data and allows operators to investigate detailed events associated with application or infrastructure problems.
+
+### Alert Drill
+
+A synthetic `CnasAlertPipelineDrill` alert is included to validate the alerting pipeline without intentionally causing an application failure. Creating the `cnas-alert-drill` ConfigMap activates the alert condition, allowing the team to demonstrate that Prometheus can detect and process an alert condition.
+
+## Monitoring Flow
+
+The monitoring architecture follows two main data paths:
+
+**Metrics path:**
+
+```text
+Kubernetes / Application
+        ↓
+kube-state-metrics / exporters / probes / Kong / kubelet / node metrics
+        ↓
+Prometheus
+        ↓
+ ┌──────┴──────┐
+ ▼             ▼
+Grafana    Alertmanager
+```
+
+**Logging path:**
+
+```text
+CNAS Workload Logs
+        ↓
+      Alloy
+        ↓
+      Loki
+        ↓
+     Grafana
+```
+
+This architecture combines metrics and logs into a single monitoring solution. Prometheus provides quantitative information about system health and performance, while Loki provides detailed event information for investigation. Grafana brings both sources together through the provisioned dashboards, while Alertmanager provides automated handling of detected conditions.

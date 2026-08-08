@@ -202,6 +202,36 @@ FLUSH PRIVILEGES;
         "--atomic", "--wait", "--timeout", "15m"
     )
 
+    # Grafana stores the administrator password in its database after first
+    # start. Keep it synchronized with the existing Secret so chart upgrades
+    # and the dashboard sidecar continue to authenticate even if that database
+    # has outlived a previous Pod or Secret update. The password is sent only
+    # over stdin and is never printed or placed in process arguments.
+    $encodedGrafanaPassword = & kubectl -n monitoring get secret cnas-grafana-admin -o "jsonpath={.data.admin-password}"
+    if ($LASTEXITCODE -ne 0 -or -not $encodedGrafanaPassword) {
+        throw "Secret monitoring/cnas-grafana-admin has no 'admin-password' key."
+    }
+    $grafanaAdminPassword = [System.Text.Encoding]::UTF8.GetString(
+        [Convert]::FromBase64String($encodedGrafanaPassword)
+    )
+    $grafanaPod = & kubectl -n monitoring get pod `
+        -l "app.kubernetes.io/name=grafana,app.kubernetes.io/instance=monitoring" `
+        -o "jsonpath={.items[0].metadata.name}"
+    if ($LASTEXITCODE -ne 0 -or -not $grafanaPod) {
+        throw "No Grafana Pod was found after the monitoring chart upgrade."
+    }
+    Invoke-Checked -Command "kubectl" -Arguments @(
+        "-n", "monitoring", "wait", "--for=condition=Ready", "pod/$grafanaPod", "--timeout=180s"
+    )
+    $grafanaAdminPassword | & kubectl -n monitoring exec -i $grafanaPod -c grafana -- `
+        grafana cli admin reset-admin-password --password-from-stdin
+    $grafanaPasswordSyncExitCode = $LASTEXITCODE
+    $grafanaAdminPassword = $null
+    if ($grafanaPasswordSyncExitCode -ne 0) {
+        throw "Failed to synchronize the Grafana administrator password with its Secret."
+    }
+    Write-Host "Synchronized Grafana's administrator password with Secret monitoring/cnas-grafana-admin."
+
     # Kong is installed before Prometheus Operator, so its chart cannot create
     # a ServiceMonitor on the first platform install. Upgrade the same pinned
     # release after the CRD exists; this changes no proxy settings but adds the

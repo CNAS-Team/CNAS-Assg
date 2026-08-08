@@ -1,4 +1,4 @@
-# Resource-conscious values for a local three-node Kind cluster.
+# Resource-conscious values for a local four-node Kind cluster.
 # The chart itself is pinned by scripts/Install-Observability.ps1.
 fullnameOverride: monitoring
 

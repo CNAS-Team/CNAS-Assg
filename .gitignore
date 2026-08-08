@@ -43,6 +43,7 @@ k8s/overlays/ci-runtime/
 *.pem
 *.key
 *.crt
+config
 
 # Build artifacts
 dist/
@@ -52,3 +53,6 @@ test-results/
 evidence/
 sbom*.json
 rendered-kubernetes.yaml
+
+#Ngrok traffic policy files
+ngrokpolicy.yaml

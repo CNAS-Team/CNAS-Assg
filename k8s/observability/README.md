@@ -51,7 +51,8 @@ The profile supplies:
 - The Redis exporter reuses the application Redis password because the
   coursework Redis configuration has one password-protected user. A production
   deployment should use a dedicated ACL user.
-- Redis session data is ephemeral and is lost when its Pod is replaced.
+- Redis session data survives Pod replacement on a local `ReadWriteOnce` PVC,
+  but the single replica and local volume do not provide node or host HA.
 - MySQL, Redis, Prometheus, Loki, and Alertmanager remain single replicas.
 - Kind nodes are containers on one host, so node dashboards do not demonstrate
   physical-host high availability.

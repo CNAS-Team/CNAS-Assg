@@ -57,7 +57,7 @@ flowchart LR
 
 - Kind nodes are containers on one physical computer. They demonstrate Kubernetes node scheduling and recovery, but loss of the computer removes the whole cluster.
 - MySQL and Redis each have one replica. The web tier is redundant, but the entire system is not fully highly available. MySQL backup/restore evidence reduces recovery risk but is not synchronous database failover.
-- Redis uses ephemeral storage, so session state is lost if its Pod is replaced.
+- Redis session state survives Pod replacement on a local `ReadWriteOnce` PVC, but the single replica and local volume do not protect against volume, node, or host loss.
 - a `ReadWriteOnce` local PVC is suitable for the coursework environment, not multi-zone production storage.
 - the application image is versioned and scanned; image signing and admission-time signature verification remain stretch controls.
 - the CRUD application has CSRF protection but no user authentication or role-based authorization. Kong authentication or an application identity layer is required before exposing it beyond the controlled coursework environment.

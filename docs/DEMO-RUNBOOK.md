@@ -214,7 +214,7 @@ Before adding evidence to the assignment report:
   continuous probe does not detect a host firewall or port-mapping failure.
 - Alertmanager has no external notification receiver until a secret-backed receiver is configured and tested; alerts remain visible in its UI.
 - The Redis exporter reuses the coursework Redis password. Production should create a dedicated least-privilege Redis ACL user.
-- Redis session data uses ephemeral storage and is lost if its Pod is replaced.
+- Redis session data survives Pod replacement on a local `ReadWriteOnce` PVC, but the single replica and local volume do not provide node or host HA.
 - Prometheus, Alertmanager, Loki, MySQL, and Redis run one replica each.
 - MySQL remains a single-replica data-tier failure point unless a replicated database or managed service is added.
 - Kind worker nodes are containers on one machine, so they do not protect against host failure.

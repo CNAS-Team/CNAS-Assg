@@ -69,7 +69,7 @@ kind load docker-image jqii/cnas-php-app:bootstrap --name cnas-cluster
 
 ```bash
 kubectl apply -k k8s
-kubectl -n cnas wait --for=condition=complete job/db-migration-v2 --timeout=300s
+kubectl -n cnas wait --for=condition=complete job/db-migration-v3 --timeout=900s
 kubectl -n cnas rollout status statefulset/mysql --timeout=300s
 kubectl -n cnas rollout status deployment/redis --timeout=300s
 kubectl -n cnas rollout status deployment/php-app --timeout=300s
