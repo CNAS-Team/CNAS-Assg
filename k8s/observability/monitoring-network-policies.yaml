@@ -1,0 +1,26 @@
+# The core namespace is default-deny. Allow only the labelled blackbox
+# exporter to exercise the internal dependency-aware readiness endpoint.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-blackbox-to-php
+  namespace: cnas
+  labels:
+    app.kubernetes.io/part-of: cnas-observability
+spec:
+  podSelector:
+    matchLabels:
+      app: php-app
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              cnas.assg/role: blackbox
+      ports:
+        - protocol: TCP
+          port: 8080

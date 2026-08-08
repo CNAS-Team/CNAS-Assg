@@ -7,31 +7,59 @@ metadata:
     grafana_dashboard: "1"
     app.kubernetes.io/part-of: cnas-observability
 data:
-  cnas-overview.json: |-
+  cnas-platform-overview.json: |-
     {
       "annotations": {"list": []},
       "editable": true,
-      "fiscalYearStartMonth": 0,
       "graphTooltip": 1,
       "id": null,
       "links": [],
-      "liveNow": false,
       "panels": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [{"options": {"0": {"color": "red", "text": "DOWN"}, "1": {"color": "green", "text": "UP"}}, "type": "value"}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}, "overrides": []},
+          "gridPos": {"h": 5, "w": 4, "x": 0, "y": 0},
+          "id": 1,
+          "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+          "targets": [{"expr": "min(probe_success{service=\"php-app\"}) or vector(0)", "legendFormat": "Application", "refId": "A"}],
+          "title": "Application",
+          "type": "stat"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [{"options": {"0": {"color": "red", "text": "DOWN"}, "1": {"color": "green", "text": "UP"}}, "type": "value"}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}, "overrides": []},
+          "gridPos": {"h": 5, "w": 4, "x": 4, "y": 0},
+          "id": 2,
+          "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+          "targets": [{"expr": "min(probe_success{service=\"gateway\"}) or vector(0)", "legendFormat": "Gateway", "refId": "A"}],
+          "title": "HTTPS gateway",
+          "type": "stat"
+        },
         {
           "datasource": {"type": "prometheus", "uid": "prometheus"},
           "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [{"options": {"0": {"color": "red", "text": "DOWN"}, "1": {"color": "green", "text": "UP"}}, "type": "value"}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}, "overrides": []},
           "gridPos": {"h": 5, "w": 4, "x": 8, "y": 0},
           "id": 3,
           "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
-          "targets": [{"expr": "max(mysql_up{namespace=\"cnas\"})", "legendFormat": "MySQL", "refId": "A"}],
-          "title": "MySQL availability",
+          "targets": [{"expr": "max(mysql_up{namespace=\"cnas\"}) or vector(0)", "legendFormat": "MySQL", "refId": "A"}],
+          "title": "MySQL",
+          "type": "stat"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [{"options": {"0": {"color": "red", "text": "DOWN"}, "1": {"color": "green", "text": "UP"}}, "type": "value"}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}, "overrides": []},
+          "gridPos": {"h": 5, "w": 4, "x": 12, "y": 0},
+          "id": 4,
+          "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+          "targets": [{"expr": "max(redis_up{namespace=\"cnas\"}) or vector(0)", "legendFormat": "Redis", "refId": "A"}],
+          "title": "Redis sessions",
           "type": "stat"
         },
         {
           "datasource": {"type": "prometheus", "uid": "prometheus"},
           "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "yellow", "value": 2}, {"color": "green", "value": 3}]}}, "overrides": []},
-          "gridPos": {"h": 5, "w": 4, "x": 12, "y": 0},
-          "id": 4,
+          "gridPos": {"h": 5, "w": 4, "x": 16, "y": 0},
+          "id": 5,
           "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
           "targets": [{"expr": "kube_deployment_status_replicas_available{namespace=\"cnas\", deployment=\"php-app\"}", "legendFormat": "Ready", "refId": "A"}],
           "title": "Ready PHP replicas",
@@ -39,63 +67,440 @@ data:
         },
         {
           "datasource": {"type": "prometheus", "uid": "prometheus"},
-          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"axisCenteredZero": false, "axisColorMode": "text", "axisPlacement": "auto", "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "pointSize": 3, "showPoints": "never", "spanNulls": false, "stacking": {"group": "A", "mode": "none"}}}, "overrides": []},
-          "gridPos": {"h": 8, "w": 8, "x": 0, "y": 8},
+          "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "yellow", "value": 3}, {"color": "green", "value": 4}]}}, "overrides": []},
+          "gridPos": {"h": 5, "w": 4, "x": 20, "y": 0},
           "id": 6,
-          "options": {"legend": {"calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
-          "targets": [{"expr": "kube_horizontalpodautoscaler_status_current_replicas{namespace=\"cnas\", horizontalpodautoscaler=\"php-app-hpa\"}", "legendFormat": "Current", "refId": "A"}, {"expr": "kube_horizontalpodautoscaler_status_desired_replicas{namespace=\"cnas\", horizontalpodautoscaler=\"php-app-hpa\"}", "legendFormat": "Desired", "refId": "B"}, {"expr": "kube_horizontalpodautoscaler_spec_max_replicas{namespace=\"cnas\", horizontalpodautoscaler=\"php-app-hpa\"}", "legendFormat": "Maximum", "refId": "C"}],
-          "title": "HPA scaling",
-          "type": "timeseries"
+          "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+          "targets": [{"expr": "sum(kube_node_status_condition{condition=\"Ready\", status=\"true\"} == 1)", "legendFormat": "Ready nodes", "refId": "A"}],
+          "title": "Ready Kind nodes",
+          "type": "stat"
         },
         {
           "datasource": {"type": "prometheus", "uid": "prometheus"},
-          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"axisCenteredZero": false, "axisColorMode": "text", "axisPlacement": "auto", "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "pointSize": 3, "showPoints": "never", "spanNulls": false, "stacking": {"group": "A", "mode": "none"}}, "unit": "percentunit"}, "overrides": []},
-          "gridPos": {"h": 8, "w": 8, "x": 8, "y": 8},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}}, "overrides": []},
+          "gridPos": {"h": 8, "w": 8, "x": 0, "y": 5},
           "id": 7,
           "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
-          "targets": [{"expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"cnas\", pod=~\"php-app-.*\", container=\"php-app\"}[5m]))", "legendFormat": "{{pod}}", "refId": "A"}],
-          "title": "PHP CPU usage",
+          "targets": [{"expr": "kube_horizontalpodautoscaler_status_current_replicas{namespace=\"cnas\", horizontalpodautoscaler=\"php-app-hpa\"}", "legendFormat": "Current", "refId": "A"}, {"expr": "kube_horizontalpodautoscaler_status_desired_replicas{namespace=\"cnas\", horizontalpodautoscaler=\"php-app-hpa\"}", "legendFormat": "Desired", "refId": "B"}, {"expr": "kube_horizontalpodautoscaler_spec_max_replicas{namespace=\"cnas\", horizontalpodautoscaler=\"php-app-hpa\"}", "legendFormat": "Maximum", "refId": "C"}],
+          "title": "Application HPA scaling",
           "type": "timeseries"
         },
         {
           "datasource": {"type": "prometheus", "uid": "prometheus"},
-          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"axisCenteredZero": false, "axisColorMode": "text", "axisPlacement": "auto", "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "pointSize": 3, "showPoints": "never", "spanNulls": false, "stacking": {"group": "A", "mode": "none"}}, "unit": "bytes"}, "overrides": []},
-          "gridPos": {"h": 8, "w": 8, "x": 16, "y": 8},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "percent"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 8, "x": 8, "y": 5},
           "id": 8,
-          "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
-          "targets": [{"expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"cnas\", pod=~\"php-app-.*\", container=\"php-app\"})", "legendFormat": "{{pod}}", "refId": "A"}],
-          "title": "PHP memory working set",
+          "options": {"legend": {"calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "targets": [{"expr": "100 * sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"cnas\", container=\"php-app\", image!=\"\"}[5m])) / clamp_min(sum by (pod) (kube_pod_container_resource_requests{namespace=\"cnas\", container=\"php-app\", resource=\"cpu\", unit=\"core\"}), 0.001)", "legendFormat": "{{pod}}", "refId": "A"}],
+          "title": "PHP CPU as % of request",
           "type": "timeseries"
         },
         {
           "datasource": {"type": "prometheus", "uid": "prometheus"},
-          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"axisCenteredZero": false, "axisColorMode": "text", "axisPlacement": "auto", "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "pointSize": 3, "showPoints": "never", "spanNulls": false, "stacking": {"group": "A", "mode": "none"}}, "unit": "percentunit"}, "overrides": []},
-          "gridPos": {"h": 8, "w": 8, "x": 8, "y": 16},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "percent"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 8, "x": 16, "y": 5},
+          "id": 9,
+          "options": {"legend": {"calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "targets": [{"expr": "100 * sum by (pod) (container_memory_working_set_bytes{namespace=\"cnas\", container=\"php-app\", image!=\"\"}) / clamp_min(sum by (pod) (kube_pod_container_resource_limits{namespace=\"cnas\", container=\"php-app\", resource=\"memory\", unit=\"byte\"}), 1)", "legendFormat": "{{pod}}", "refId": "A"}],
+          "title": "PHP memory as % of limit",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "percent"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 8, "x": 0, "y": 13},
           "id": 10,
+          "options": {"legend": {"calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "targets": [{"expr": "100 * (1 - avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])))", "legendFormat": "{{instance}}", "refId": "A"}],
+          "title": "Kind node CPU utilization",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "percent"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 8, "x": 8, "y": 13},
+          "id": 11,
+          "options": {"legend": {"calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "targets": [{"expr": "100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)", "legendFormat": "{{instance}}", "refId": "A"}],
+          "title": "Kind node memory utilization",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "short"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 8, "x": 16, "y": 13},
+          "id": 12,
           "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
-          "targets": [{"expr": "kubelet_volume_stats_used_bytes{namespace=\"cnas\", persistentvolumeclaim=\"mysql-pvc\"} / kubelet_volume_stats_capacity_bytes{namespace=\"cnas\", persistentvolumeclaim=\"mysql-pvc\"}", "legendFormat": "mysql-pvc", "refId": "A"}],
-          "title": "MySQL PVC utilization",
+          "targets": [{"expr": "sum by (namespace, pod) (increase(kube_pod_container_status_restarts_total{namespace=~\"cnas|kong|monitoring\"}[15m]))", "legendFormat": "{{namespace}}/{{pod}}", "refId": "A"}],
+          "title": "Container restarts (15m)",
           "type": "timeseries"
         },
         {
           "datasource": {"type": "loki", "uid": "loki"},
-          "gridPos": {"h": 10, "w": 24, "x": 0, "y": 24},
-          "id": 12,
+          "gridPos": {"h": 10, "w": 24, "x": 0, "y": 21},
+          "id": 13,
           "options": {"dedupStrategy": "none", "enableLogDetails": true, "prettifyLogMessage": false, "showCommonLabels": false, "showLabels": false, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true},
-          "targets": [{"datasource": {"type": "loki", "uid": "loki"}, "editorMode": "code", "expr": "{namespace=\"cnas\"}", "queryType": "range", "refId": "A"}],
-          "title": "CNAS workload logs",
+          "targets": [{"datasource": {"type": "loki", "uid": "loki"}, "editorMode": "code", "expr": "{namespace=~\"cnas|kong|monitoring\"}", "queryType": "range", "refId": "A"}],
+          "title": "Platform logs",
           "type": "logs"
         }
       ],
       "refresh": "30s",
       "schemaVersion": 39,
-      "tags": ["cnas", "assignment", "observability"],
+      "tags": ["cnas", "platform", "observability"],
       "templating": {"list": []},
       "time": {"from": "now-1h", "to": "now"},
       "timepicker": {},
       "timezone": "browser",
-      "title": "CNAS Application, Gateway, MySQL and Cluster Overview",
-      "uid": "cnas-overview",
-      "version": 1,
-      "weekStart": ""
+      "title": "CNAS Platform Overview",
+      "uid": "cnas-platform-overview",
+      "version": 1
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cnas-gateway-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+    app.kubernetes.io/part-of: cnas-observability
+data:
+  cnas-gateway.json: |-
+    {
+      "annotations": {"list": []},
+      "editable": true,
+      "graphTooltip": 1,
+      "id": null,
+      "links": [],
+      "panels": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [{"options": {"0": {"color": "red", "text": "DOWN"}, "1": {"color": "green", "text": "UP"}}, "type": "value"}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}, "overrides": []},
+          "gridPos": {"h": 5, "w": 4, "x": 0, "y": 0},
+          "id": 1,
+          "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+          "targets": [{"expr": "min(probe_success{service=\"gateway\"}) or vector(0)", "legendFormat": "Gateway", "refId": "A"}],
+          "title": "HTTPS route",
+          "type": "stat"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 200}, {"color": "red", "value": 400}]}}, "overrides": []},
+          "gridPos": {"h": 5, "w": 4, "x": 4, "y": 0},
+          "id": 2,
+          "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+          "targets": [{"expr": "probe_http_status_code{service=\"gateway\"}", "legendFormat": "HTTP", "refId": "A"}],
+          "title": "Gateway status code",
+          "type": "stat"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "red", "value": 0}, {"color": "yellow", "value": 7}, {"color": "green", "value": 14}]}, "unit": "d"}, "overrides": []},
+          "gridPos": {"h": 5, "w": 4, "x": 8, "y": 0},
+          "id": 3,
+          "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+          "targets": [{"expr": "min((probe_ssl_earliest_cert_expiry{service=\"gateway\"} - time()) / 86400)", "legendFormat": "Days", "refId": "A"}],
+          "title": "TLS days remaining",
+          "type": "stat"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "unit": "reqps"}, "overrides": []},
+          "gridPos": {"h": 5, "w": 4, "x": 12, "y": 0},
+          "id": 4,
+          "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+          "targets": [{"expr": "sum(rate(kong_http_requests_total{namespace=\"kong\"}[5m]))", "legendFormat": "RPS", "refId": "A"}],
+          "title": "Request rate",
+          "type": "stat"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.01}, {"color": "red", "value": 0.05}]}, "unit": "percentunit"}, "overrides": []},
+          "gridPos": {"h": 5, "w": 4, "x": 16, "y": 0},
+          "id": 5,
+          "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+          "targets": [{"expr": "sum(rate(kong_http_requests_total{namespace=\"kong\", code=~\"5..\"}[5m])) / clamp_min(sum(rate(kong_http_requests_total{namespace=\"kong\"}[5m])), 0.001)", "legendFormat": "5xx", "refId": "A"}],
+          "title": "HTTP 5xx ratio",
+          "type": "stat"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "unit": "reqps"}, "overrides": []},
+          "gridPos": {"h": 5, "w": 4, "x": 20, "y": 0},
+          "id": 6,
+          "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+          "targets": [{"expr": "sum(rate(kong_http_requests_total{namespace=\"kong\", code=\"429\"}[5m]))", "legendFormat": "429", "refId": "A"}],
+          "title": "Rate-limited requests",
+          "type": "stat"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "reqps"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 8, "x": 0, "y": 5},
+          "id": 7,
+          "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "targets": [{"expr": "sum by (code) (rate(kong_http_requests_total{namespace=\"kong\"}[5m]))", "legendFormat": "HTTP {{code}}", "refId": "A"}],
+          "title": "Requests by HTTP status",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "ms"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 8, "x": 8, "y": 5},
+          "id": 8,
+          "options": {"legend": {"calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "targets": [{"expr": "histogram_quantile(0.95, sum by (le) (rate(kong_request_latency_ms_bucket{namespace=\"kong\"}[5m])))", "legendFormat": "Request", "refId": "A"}, {"expr": "histogram_quantile(0.95, sum by (le) (rate(kong_kong_latency_ms_bucket{namespace=\"kong\"}[5m])))", "legendFormat": "Kong", "refId": "B"}, {"expr": "histogram_quantile(0.95, sum by (le) (rate(kong_upstream_latency_ms_bucket{namespace=\"kong\"}[5m])))", "legendFormat": "Upstream", "refId": "C"}],
+          "title": "p95 latency",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "Bps"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 8, "x": 16, "y": 5},
+          "id": 9,
+          "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "targets": [{"expr": "sum by (direction) (rate(kong_bandwidth_bytes{namespace=\"kong\"}[5m]))", "legendFormat": "{{direction}}", "refId": "A"}],
+          "title": "Gateway bandwidth",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "ops"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 8, "x": 0, "y": 13},
+          "id": 10,
+          "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "targets": [{"expr": "sum by (success) (rate(ingress_controller_configuration_push_count{namespace=\"kong\"}[5m]))", "legendFormat": "success={{success}}", "refId": "A"}, {"expr": "sum by (success) (rate(ingress_controller_translation_count{namespace=\"kong\"}[5m]))", "legendFormat": "translation={{success}}", "refId": "B"}],
+          "title": "KIC configuration activity",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "loki", "uid": "loki"},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "reqps"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 8, "x": 8, "y": 13},
+          "id": 11,
+          "options": {"legend": {"calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "targets": [{"datasource": {"type": "loki", "uid": "loki"}, "editorMode": "code", "expr": "sum by (pod) (rate({namespace=\"cnas\", container=\"php-app\"} |= \"HTTP/\" != \"/readyz.php\" != \"/livez.php\" [1m]))", "legendFormat": "{{pod}}", "queryType": "range", "refId": "A"}],
+          "title": "Backend request distribution by PHP Pod",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "reqps"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 8, "x": 16, "y": 13},
+          "id": 12,
+          "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "targets": [{"expr": "sum by (instance) (rate(kong_http_requests_total{namespace=\"kong\"}[5m]))", "legendFormat": "{{instance}}", "refId": "A"}],
+          "title": "Traffic by Kong instance",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "loki", "uid": "loki"},
+          "gridPos": {"h": 10, "w": 24, "x": 0, "y": 21},
+          "id": 13,
+          "options": {"dedupStrategy": "none", "enableLogDetails": true, "prettifyLogMessage": false, "showCommonLabels": false, "showLabels": false, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true},
+          "targets": [{"datasource": {"type": "loki", "uid": "loki"}, "editorMode": "code", "expr": "{namespace=\"kong\"}", "queryType": "range", "refId": "A"}],
+          "title": "Kong Gateway and controller logs",
+          "type": "logs"
+        }
+      ],
+      "refresh": "30s",
+      "schemaVersion": 39,
+      "tags": ["cnas", "kong", "gateway", "load-balancing"],
+      "templating": {"list": []},
+      "time": {"from": "now-1h", "to": "now"},
+      "timepicker": {},
+      "timezone": "browser",
+      "title": "CNAS Gateway and Load Balancing",
+      "uid": "cnas-gateway-load-balancing",
+      "version": 1
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cnas-data-services-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+    app.kubernetes.io/part-of: cnas-observability
+data:
+  cnas-data-services.json: |-
+    {
+      "annotations": {"list": []},
+      "editable": true,
+      "graphTooltip": 1,
+      "id": null,
+      "links": [],
+      "panels": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [{"options": {"0": {"color": "red", "text": "DOWN"}, "1": {"color": "green", "text": "UP"}}, "type": "value"}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}, "overrides": []},
+          "gridPos": {"h": 5, "w": 4, "x": 0, "y": 0},
+          "id": 1,
+          "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+          "targets": [{"expr": "max(mysql_up{namespace=\"cnas\"}) or vector(0)", "legendFormat": "MySQL", "refId": "A"}],
+          "title": "MySQL availability",
+          "type": "stat"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [{"options": {"0": {"color": "red", "text": "DOWN"}, "1": {"color": "green", "text": "UP"}}, "type": "value"}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}, "overrides": []},
+          "gridPos": {"h": 5, "w": 4, "x": 4, "y": 0},
+          "id": 2,
+          "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+          "targets": [{"expr": "max(redis_up{namespace=\"cnas\"}) or vector(0)", "legendFormat": "Redis", "refId": "A"}],
+          "title": "Redis availability",
+          "type": "stat"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 60}, {"color": "red", "value": 80}]}, "unit": "percent"}, "overrides": []},
+          "gridPos": {"h": 5, "w": 4, "x": 8, "y": 0},
+          "id": 3,
+          "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+          "targets": [{"expr": "100 * max(mysql_global_status_threads_connected{namespace=\"cnas\"}) / clamp_min(max(mysql_global_variables_max_connections{namespace=\"cnas\"}), 1)", "legendFormat": "Connections", "refId": "A"}],
+          "title": "MySQL connection use",
+          "type": "stat"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 70}, {"color": "red", "value": 85}]}, "unit": "percent"}, "overrides": []},
+          "gridPos": {"h": 5, "w": 4, "x": 12, "y": 0},
+          "id": 4,
+          "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+          "targets": [{"expr": "100 * max(redis_memory_used_bytes{namespace=\"cnas\"}) / clamp_min(max(redis_memory_max_bytes{namespace=\"cnas\"}), 1)", "legendFormat": "Memory", "refId": "A"}],
+          "title": "Redis maxmemory use",
+          "type": "stat"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "noValue": "NO SUCCESS YET", "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 24}, {"color": "red", "value": 36}]}, "unit": "h"}, "overrides": []},
+          "gridPos": {"h": 5, "w": 4, "x": 16, "y": 0},
+          "id": 5,
+          "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+          "targets": [{"expr": "(time() - max(kube_cronjob_status_last_successful_time{namespace=\"cnas\", cronjob=\"mysql-backup\"})) / 3600", "legendFormat": "Hours", "refId": "A"}],
+          "title": "Last backup age",
+          "type": "stat"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}}, "overrides": []},
+          "gridPos": {"h": 5, "w": 4, "x": 20, "y": 0},
+          "id": 6,
+          "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+          "targets": [{"expr": "sum(kube_job_failed{namespace=\"cnas\", job_name=~\"mysql-backup.*\", condition=\"true\"})", "legendFormat": "Failed", "refId": "A"}],
+          "title": "Failed backup Jobs",
+          "type": "stat"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "reqps"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 8, "x": 0, "y": 5},
+          "id": 7,
+          "options": {"legend": {"calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "targets": [{"expr": "sum(rate(mysql_global_status_queries{namespace=\"cnas\"}[5m]))", "legendFormat": "Queries/sec", "refId": "A"}],
+          "title": "MySQL query rate",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "short"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 8, "x": 8, "y": 5},
+          "id": 8,
+          "options": {"legend": {"calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "targets": [{"expr": "sum(increase(mysql_global_status_slow_queries{namespace=\"cnas\"}[15m]))", "legendFormat": "Slow queries", "refId": "A"}, {"expr": "sum(increase(mysql_global_status_aborted_connects{namespace=\"cnas\"}[15m]))", "legendFormat": "Aborted connects", "refId": "B"}, {"expr": "sum(increase(mysql_global_status_innodb_deadlocks{namespace=\"cnas\"}[15m]))", "legendFormat": "Deadlocks", "refId": "C"}],
+          "title": "MySQL reliability events (15m)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "percent"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 8, "x": 16, "y": 5},
+          "id": 9,
+          "options": {"legend": {"calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "targets": [{"expr": "100 * kubelet_volume_stats_used_bytes{namespace=\"cnas\", persistentvolumeclaim=~\"mysql-pvc|mysql-backup-pvc\"} / kubelet_volume_stats_capacity_bytes{namespace=\"cnas\", persistentvolumeclaim=~\"mysql-pvc|mysql-backup-pvc\"}", "legendFormat": "{{persistentvolumeclaim}}", "refId": "A"}],
+          "title": "Database and backup PVC use",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "ops"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 8, "x": 0, "y": 13},
+          "id": 10,
+          "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "targets": [{"expr": "sum by (cmd) (rate(redis_commands_total{namespace=\"cnas\"}[5m]))", "legendFormat": "{{cmd}}", "refId": "A"}],
+          "title": "Redis commands per second",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "short"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 8, "x": 8, "y": 13},
+          "id": 11,
+          "options": {"legend": {"calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "targets": [{"expr": "max(redis_connected_clients{namespace=\"cnas\"})", "legendFormat": "Connected", "refId": "A"}, {"expr": "max(redis_blocked_clients{namespace=\"cnas\"})", "legendFormat": "Blocked", "refId": "B"}],
+          "title": "Redis clients",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "bytes"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 8, "x": 16, "y": 13},
+          "id": 12,
+          "options": {"legend": {"calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "targets": [{"expr": "max(redis_memory_used_bytes{namespace=\"cnas\"})", "legendFormat": "Used", "refId": "A"}, {"expr": "max(redis_memory_max_bytes{namespace=\"cnas\"})", "legendFormat": "Maxmemory", "refId": "B"}],
+          "title": "Redis memory",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "short"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 8, "x": 0, "y": 21},
+          "id": 13,
+          "options": {"legend": {"calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "targets": [{"expr": "sum(increase(redis_evicted_keys_total{namespace=\"cnas\"}[15m]))", "legendFormat": "Evicted keys", "refId": "A"}, {"expr": "sum(increase(redis_rejected_connections_total{namespace=\"cnas\"}[15m]))", "legendFormat": "Rejected connections", "refId": "B"}],
+          "title": "Redis reliability events (15m)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "percent"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 8, "x": 8, "y": 21},
+          "id": 14,
+          "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "targets": [{"expr": "100 * sum(rate(redis_keyspace_hits_total{namespace=\"cnas\"}[5m])) / clamp_min(sum(rate(redis_keyspace_hits_total{namespace=\"cnas\"}[5m])) + sum(rate(redis_keyspace_misses_total{namespace=\"cnas\"}[5m])), 0.001)", "legendFormat": "Hit ratio", "refId": "A"}],
+          "title": "Redis keyspace hit ratio",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "short"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 8, "x": 16, "y": 21},
+          "id": 15,
+          "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "targets": [{"expr": "sum by (db) (redis_db_keys{namespace=\"cnas\"})", "legendFormat": "{{db}}", "refId": "A"}],
+          "title": "Redis keys by database",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "loki", "uid": "loki"},
+          "gridPos": {"h": 10, "w": 24, "x": 0, "y": 29},
+          "id": 16,
+          "options": {"dedupStrategy": "none", "enableLogDetails": true, "prettifyLogMessage": false, "showCommonLabels": false, "showLabels": false, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true},
+          "targets": [{"datasource": {"type": "loki", "uid": "loki"}, "editorMode": "code", "expr": "{namespace=\"cnas\", container=~\"mysql|redis|mysql-exporter|redis-exporter\"}", "queryType": "range", "refId": "A"}],
+          "title": "Database, session-store, and exporter logs",
+          "type": "logs"
+        }
+      ],
+      "refresh": "30s",
+      "schemaVersion": 39,
+      "tags": ["cnas", "mysql", "redis", "database"],
+      "templating": {"list": []},
+      "time": {"from": "now-1h", "to": "now"},
+      "timepicker": {},
+      "timezone": "browser",
+      "title": "CNAS MySQL and Redis Data Services",
+      "uid": "cnas-data-services",
+      "version": 1
     }

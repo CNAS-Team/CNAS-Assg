@@ -19,7 +19,11 @@ flowchart LR
     php3 --> redis
     jenkins[Jenkins and Trivy] --> registry[Immutable image]
     registry --> php1
-    prometheus[Prometheus and Grafana] -. metrics .-> service
+    prometheus[Prometheus and Grafana] -. metrics .-> kong
+    prometheus -. metrics .-> mysql
+    prometheus -. metrics .-> redis
+    prometheus -. node and workload metrics .-> php1
+    blackbox[Blackbox probes] -. end-to-end checks .-> service
     alloy[Alloy and Loki] -. logs .-> php1
 ~~~
 
@@ -33,7 +37,7 @@ The coursework profile uses:
 - MySQL as a StatefulSet with persistent storage, versioned schema migration, logical backups, and a restore test;
 - HPA, topology spreading, rolling updates, and a PodDisruptionBudget;
 - restricted Pod Security plus Kyverno admission policies;
-- Prometheus, Alertmanager, Grafana, Loki, Alloy, and a MySQL exporter;
+- Prometheus, Alertmanager, Grafana, Loki, Alloy, blackbox probes, Kong/KIC metrics, MySQL and Redis exporters, and node-exporter;
 - Jenkins gates for linting, tests, Trivy scans, SBOM generation, immutable image delivery, smoke tests, and guarded rollback.
 
 See [Architecture](docs/ARCHITECTURE.md) for trust boundaries, deployment decisions, requirement mapping, and honest limitations.
@@ -125,6 +129,8 @@ This is an honest single-laptop coursework environment, not a production claim:
 - Kind nodes are containers on one physical host.
 - MySQL and Redis each have one replica.
 - local persistent volumes are not multi-zone storage;
+- Redis session data survives Pod replacement on a local `ReadWriteOnce` PVC,
+  but the single replica and local volume do not provide node or host HA;
 - local TLS is self-signed;
 - Prometheus, Loki, and Grafana use low-resource ephemeral storage;
 - image signing and admission-time signature verification remain stretch improvements.
@@ -153,4 +159,3 @@ These boundaries are important in the report: the web tier demonstrates redundan
 | Lau Jia Qi | Kubernetes platform, services, gateway, scaling, and storage |
 | Chee Hsiao En Samuela | CI/CD, security, policies, and secret handling |
 | Janice Oh Shi Ting | Monitoring, Observability, validation evidence, demonstration |
-

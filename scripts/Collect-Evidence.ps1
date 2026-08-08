@@ -81,6 +81,7 @@ Save-CommandOutput -Name "02-cluster-info" -Command "kubectl" -Arguments @("clus
 Save-CommandOutput -Name "03-nodes-wide" -Command "kubectl" -Arguments @("get", "nodes", "-o", "wide")
 Save-CommandOutput -Name "04-cnas-workloads" -Command "kubectl" -Arguments @("-n", "cnas", "get", "all", "-o", "wide")
 Save-CommandOutput -Name "05-monitoring-workloads" -Command "kubectl" -Arguments @("-n", "monitoring", "get", "all", "-o", "wide")
+Save-CommandOutput -Name "05a-kong-workloads" -Command "kubectl" -Arguments @("-n", "kong", "get", "all", "-o", "wide")
 Save-CommandOutput -Name "06-gateway-classes" -Command "kubectl" -Arguments @(
     "get", "gatewayclasses.gateway.networking.k8s.io", "-o", "wide"
 ) -AllowFailure
@@ -114,16 +115,43 @@ Save-CommandOutput -Name "15-rollout-history-php" -Command "kubectl" -Arguments 
 Save-CommandOutput -Name "16-hpa-description" -Command "kubectl" -Arguments @(
     "-n", "cnas", "describe", "hpa", "php-app-hpa"
 ) -AllowFailure
+Save-CommandOutput -Name "16a-grafana-dashboards" -Command "kubectl" -Arguments @(
+    "-n", "monitoring", "get", "configmap", "-l", "grafana_dashboard=1", "-o", "wide"
+) -AllowFailure
+Save-CommandOutput -Name "16b-kong-events" -Command "kubectl" -Arguments @(
+    "-n", "kong", "get", "events", "--sort-by=.metadata.creationTimestamp"
+) -AllowFailure
 
 if (Get-Command helm -ErrorAction SilentlyContinue) {
     Save-CommandOutput -Name "17-helm-releases" -Command "helm" -Arguments @("list", "-A") -AllowFailure
 }
 
+Save-PrometheusQuery -Name "blackbox-exporter-up" -Query 'up{namespace="monitoring",service="blackbox-exporter"}'
 Save-PrometheusQuery -Name "app-availability" -Query 'probe_success{service="php-app"}'
 Save-PrometheusQuery -Name "gateway-availability" -Query 'probe_success{service="gateway"}'
+Save-PrometheusQuery -Name "gateway-http-status" -Query 'probe_http_status_code{service="gateway"}'
+Save-PrometheusQuery -Name "gateway-probe-duration" -Query 'probe_duration_seconds{service="gateway"}'
+Save-PrometheusQuery -Name "gateway-tls-expiry" -Query 'probe_ssl_earliest_cert_expiry{service="gateway"} - time()'
+Save-PrometheusQuery -Name "kong-request-rate" -Query 'sum(rate(kong_http_requests_total{namespace="kong"}[5m]))'
+Save-PrometheusQuery -Name "kong-http-5xx-ratio" -Query 'sum(rate(kong_http_requests_total{namespace="kong",code=~"5.."}[5m])) / clamp_min(sum(rate(kong_http_requests_total{namespace="kong"}[5m])),0.001)'
+Save-PrometheusQuery -Name "kong-p95-latency-ms" -Query 'histogram_quantile(0.95,sum by(le)(rate(kong_request_latency_ms_bucket{namespace="kong"}[5m])))'
+Save-PrometheusQuery -Name "kic-failed-config-pushes" -Query 'sum(increase(ingress_controller_configuration_push_count{namespace="kong",success="false"}[10m]))'
 Save-PrometheusQuery -Name "mysql-up" -Query 'mysql_up{namespace="cnas"}'
+Save-PrometheusQuery -Name "mysql-connection-utilization" -Query 'max(mysql_global_status_threads_connected{namespace="cnas"}) / clamp_min(max(mysql_global_variables_max_connections{namespace="cnas"}),1)'
+Save-PrometheusQuery -Name "mysql-query-rate" -Query 'sum(rate(mysql_global_status_queries{namespace="cnas"}[5m]))'
+Save-PrometheusQuery -Name "mysql-slow-queries" -Query 'sum(increase(mysql_global_status_slow_queries{namespace="cnas"}[15m]))'
+Save-PrometheusQuery -Name "mysql-pvc-utilization" -Query 'kubelet_volume_stats_used_bytes{namespace="cnas",persistentvolumeclaim="mysql-pvc"} / kubelet_volume_stats_capacity_bytes{namespace="cnas",persistentvolumeclaim="mysql-pvc"}'
+Save-PrometheusQuery -Name "mysql-backup-failed-jobs" -Query 'sum(kube_job_failed{namespace="cnas",job_name=~"mysql-backup.*",condition="true"})'
+Save-PrometheusQuery -Name "mysql-backup-age-seconds" -Query 'time() - max(kube_cronjob_status_last_successful_time{namespace="cnas",cronjob="mysql-backup"})'
+Save-PrometheusQuery -Name "redis-up" -Query 'redis_up{namespace="cnas"}'
+Save-PrometheusQuery -Name "redis-memory-utilization" -Query 'max(redis_memory_used_bytes{namespace="cnas"}) / clamp_min(max(redis_memory_max_bytes{namespace="cnas"}),1)'
+Save-PrometheusQuery -Name "redis-clients" -Query 'max(redis_connected_clients{namespace="cnas"})'
+Save-PrometheusQuery -Name "redis-command-rate" -Query 'sum(rate(redis_commands_total{namespace="cnas"}[5m]))'
+Save-PrometheusQuery -Name "redis-evictions" -Query 'sum(increase(redis_evicted_keys_total{namespace="cnas"}[15m]))'
 Save-PrometheusQuery -Name "ready-replicas" -Query 'kube_deployment_status_replicas_available{namespace="cnas",deployment="php-app"}'
 Save-PrometheusQuery -Name "hpa-current" -Query 'kube_horizontalpodautoscaler_status_current_replicas{namespace="cnas",horizontalpodautoscaler="php-app-hpa"}'
+Save-PrometheusQuery -Name "ready-nodes" -Query 'sum(kube_node_status_condition{condition="Ready",status="true"} == 1)'
+Save-PrometheusQuery -Name "node-exporter-targets" -Query 'count(node_uname_info)'
 Save-PrometheusQuery -Name "active-alerts" -Query 'ALERTS{alertstate="firing"}'
 
 $lokiPath = "/api/v1/namespaces/monitoring/services/http:loki-gateway:80/proxy/loki/api/v1/labels"
