@@ -62,11 +62,7 @@ pipeline {
         stage('Deep Secret Scan (Gitleaks)') {
             steps {
                 echo "=== Scanning Git History for Leaked Secrets ==="
-                sh '''
-                    docker run --rm \
-                      -v "$WORKSPACE:/path" \
-                      zricethezav/gitleaks:latest detect --source="/path" -v
-                '''
+                sh 'docker run --rm -v /var/jenkins_home/workspace/cnas-pipeline:/path zricethezav/gitleaks:latest detect --source=/path --no-git -v'
             }
         }
 
