@@ -18,7 +18,7 @@ data:
         {
           "datasource": {"type": "prometheus", "uid": "prometheus"},
           "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [{"options": {"0": {"color": "red", "text": "DOWN"}, "1": {"color": "green", "text": "UP"}}, "type": "value"}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}, "overrides": []},
-          "gridPos": {"h": 5, "w": 4, "x": 0, "y": 0},
+          "gridPos": {"h": 5, "w": 3, "x": 0, "y": 0},
           "id": 1,
           "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
           "targets": [{"expr": "min(probe_success{service=\"php-app\"}) or vector(0)", "legendFormat": "Application", "refId": "A"}],
@@ -28,7 +28,7 @@ data:
         {
           "datasource": {"type": "prometheus", "uid": "prometheus"},
           "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [{"options": {"0": {"color": "red", "text": "DOWN"}, "1": {"color": "green", "text": "UP"}}, "type": "value"}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}, "overrides": []},
-          "gridPos": {"h": 5, "w": 4, "x": 4, "y": 0},
+          "gridPos": {"h": 5, "w": 3, "x": 3, "y": 0},
           "id": 2,
           "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
           "targets": [{"expr": "min(probe_success{service=\"gateway\"}) or vector(0)", "legendFormat": "Gateway", "refId": "A"}],
@@ -37,8 +37,18 @@ data:
         },
         {
           "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "decimals": 2, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.01}, {"color": "red", "value": 0.05}]}, "unit": "percentunit"}, "overrides": []},
+          "gridPos": {"h": 5, "w": 4, "x": 6, "y": 0},
+          "id": 14,
+          "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+          "targets": [{"expr": "(sum(rate(kong_http_requests_total{namespace=\"kong\", code=~\"5..\"}[5m])) / clamp_min(sum(rate(kong_http_requests_total{namespace=\"kong\"}[5m])), 0.001)) or vector(0)", "legendFormat": "5xx", "refId": "A"}],
+          "title": "Gateway 5xx error rate",
+          "type": "stat"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
           "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [{"options": {"0": {"color": "red", "text": "DOWN"}, "1": {"color": "green", "text": "UP"}}, "type": "value"}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}, "overrides": []},
-          "gridPos": {"h": 5, "w": 4, "x": 8, "y": 0},
+          "gridPos": {"h": 5, "w": 3, "x": 10, "y": 0},
           "id": 3,
           "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
           "targets": [{"expr": "max(mysql_up{namespace=\"cnas\"}) or vector(0)", "legendFormat": "MySQL", "refId": "A"}],
@@ -48,7 +58,7 @@ data:
         {
           "datasource": {"type": "prometheus", "uid": "prometheus"},
           "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [{"options": {"0": {"color": "red", "text": "DOWN"}, "1": {"color": "green", "text": "UP"}}, "type": "value"}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}, "overrides": []},
-          "gridPos": {"h": 5, "w": 4, "x": 12, "y": 0},
+          "gridPos": {"h": 5, "w": 3, "x": 13, "y": 0},
           "id": 4,
           "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
           "targets": [{"expr": "max(redis_up{namespace=\"cnas\"}) or vector(0)", "legendFormat": "Redis", "refId": "A"}],
