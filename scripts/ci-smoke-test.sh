@@ -3,7 +3,7 @@ set -euo pipefail
 
 NAMESPACE="${NAMESPACE:-cnas}"
 SERVICE_URL="${SERVICE_URL:-http://php-service.cnas.svc.cluster.local}"
-GATEWAY_URL="${GATEWAY_URL:-https://kong-gateway-proxy.kong.svc.cluster.local/}"
+GATEWAY_URL="${GATEWAY_URL:-}"
 GATEWAY_HOST="${GATEWAY_HOST:-cnas.local}"
 ROLLOUT_TIMEOUT="${ROLLOUT_TIMEOUT:-180s}"
 
@@ -13,6 +13,23 @@ for command in kubectl date; do
     exit 2
   }
 done
+
+if [[ -z "${GATEWAY_URL}" ]]; then
+  for service in kong-gateway-proxy kong-kong-proxy kong-proxy; do
+    if kubectl -n kong get service "${service}" >/dev/null 2>&1; then
+      GATEWAY_URL="https://${service}.kong.svc.cluster.local/"
+      break
+    fi
+  done
+fi
+
+if [[ -z "${GATEWAY_URL}" ]]; then
+  echo "No Kong proxy Service was found:" >&2
+  kubectl -n kong get services >&2
+  exit 1
+fi
+
+echo "Using Kong gateway: ${GATEWAY_URL}"
 
 kubectl -n "${NAMESPACE}" rollout status deployment/php-app --timeout="${ROLLOUT_TIMEOUT}"
 kubectl -n "${NAMESPACE}" rollout status statefulset/mysql --timeout="${ROLLOUT_TIMEOUT}"
