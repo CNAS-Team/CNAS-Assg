@@ -43,7 +43,7 @@ metadata:
   name: cnas-app
   namespace: cnas
   annotations:
-    konghq.com/plugins: cnas-rate-limit
+    konghq.com/plugins: cnas-rate-limit,cnas-prometheus
     # KIC models HTTP-to-HTTPS redirects on the HTTPS-only Kong route. A
     # separate Gateway API RequestRedirect route overlaps this route in Kong.
     konghq.com/protocols: https
@@ -74,3 +74,21 @@ config:
   policy: local
   fault_tolerant: true
   hide_client_headers: false
+---
+# Traffic metrics are deliberately enabled only for this coursework route.
+# The route/service cardinality is small and per-consumer labels remain off.
+# Prometheus scrapes the Kong status listener through the chart ServiceMonitor.
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: cnas-prometheus
+  namespace: cnas
+  annotations:
+    kubernetes.io/ingress.class: kong
+plugin: prometheus
+config:
+  status_code_metrics: true
+  latency_metrics: true
+  bandwidth_metrics: true
+  upstream_health_metrics: true
+  per_consumer: false

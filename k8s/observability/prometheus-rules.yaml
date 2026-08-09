@@ -9,6 +9,53 @@ spec:
   groups:
     - name: cnas.availability
       rules:
+        - alert: CnasBlackboxExporterScrapeDown
+          expr: max(up{namespace="monitoring", service="blackbox-exporter"}) == 0 or absent(up{namespace="monitoring", service="blackbox-exporter"})
+          for: 2m
+          labels:
+            severity: critical
+            component: availability-monitoring
+          annotations:
+            summary: Prometheus cannot scrape the blackbox exporter
+            description: Application and Gateway probes cannot run; check the exporter Pod, ServiceMonitor, and NetworkPolicy.
+        - alert: CnasApplicationDown
+          expr: probe_success{service="php-app"} == 0 or (absent(probe_success{service="php-app"}) and max(up{namespace="monitoring", service="blackbox-exporter"}) == 1)
+          for: 2m
+          labels:
+            severity: critical
+            component: application
+          annotations:
+            summary: CNAS application Service is unavailable
+            description: The dependency-aware internal HTTP probe has failed continuously for two minutes.
+            runbook_url: docs/DEMO-RUNBOOK.md#alert-exercises
+        - alert: CnasGatewayDown
+          expr: probe_success{service="gateway"} == 0 or (absent(probe_success{service="gateway"}) and max(up{namespace="monitoring", service="blackbox-exporter"}) == 1)
+          for: 2m
+          labels:
+            severity: critical
+            component: gateway
+          annotations:
+            summary: CNAS HTTPS gateway route is unavailable
+            description: The cluster-internal Kong HTTPS probe with Host cnas.local has failed continuously for two minutes.
+            runbook_url: docs/DEMO-RUNBOOK.md#alert-exercises
+        - alert: CnasGatewayCertificateExpiringSoon
+          expr: probe_ssl_earliest_cert_expiry{service="gateway"} - time() < 7 * 24 * 60 * 60
+          for: 30m
+          labels:
+            severity: warning
+            component: gateway
+          annotations:
+            summary: CNAS gateway certificate expires within seven days
+            description: Replace the demonstration certificate before it expires.
+        - alert: CnasApplicationHighLatency
+          expr: probe_duration_seconds{service="php-app"} > 1
+          for: 5m
+          labels:
+            severity: warning
+            component: application
+          annotations:
+            summary: CNAS application readiness latency is high
+            description: The internal blackbox request has taken more than one second for five minutes.
         - alert: CnasDeploymentReplicasUnavailable
           expr: kube_deployment_status_replicas_available{namespace="cnas", deployment="php-app"} < kube_deployment_spec_replicas{namespace="cnas", deployment="php-app"}
           for: 2m
@@ -18,6 +65,241 @@ spec:
           annotations:
             summary: One or more CNAS application replicas are unavailable
             description: Ready replicas are below the Deployment's desired replica count.
+        - alert: CnasGatewayReplicasUnavailable
+          expr: kube_deployment_status_replicas_available{namespace="kong", deployment="kong-gateway"} < kube_deployment_spec_replicas{namespace="kong", deployment="kong-gateway"}
+          for: 2m
+          labels:
+            severity: critical
+            component: gateway
+          annotations:
+            summary: A Kong Gateway replica is unavailable
+            description: The Kong Gateway Deployment has fewer ready replicas than desired.
+        - alert: CnasRedisDeploymentUnavailable
+          expr: kube_deployment_status_replicas_available{namespace="cnas", deployment="redis"} < kube_deployment_spec_replicas{namespace="cnas", deployment="redis"}
+          for: 2m
+          labels:
+            severity: critical
+            component: session-store
+          annotations:
+            summary: Redis session-store Deployment is unavailable
+            description: The shared session store has fewer ready replicas than desired.
+
+    - name: cnas.gateway
+      rules:
+        - alert: CnasKongMetricsMissing
+          expr: absent(kong_node_info{namespace="kong"})
+          for: 5m
+          labels:
+            severity: warning
+            component: gateway
+          annotations:
+            summary: Kong traffic metrics are missing
+            description: Prometheus has not received Kong Prometheus-plugin metrics for five minutes.
+        - alert: CnasKongHighHttp5xxRatio
+          expr: |
+            (
+              sum(rate(kong_http_requests_total{namespace="kong", code=~"5.."}[5m]))
+              /
+              clamp_min(sum(rate(kong_http_requests_total{namespace="kong"}[5m])), 0.001)
+            ) > 0.05
+            and
+            sum(rate(kong_http_requests_total{namespace="kong"}[5m])) > 0.1
+          for: 5m
+          labels:
+            severity: critical
+            component: gateway
+          annotations:
+            summary: Kong HTTP 5xx ratio exceeds five percent
+            description: The error ratio is elevated while the route is receiving sustained traffic.
+        - alert: CnasKongHighP95Latency
+          expr: histogram_quantile(0.95, sum by (le) (rate(kong_request_latency_ms_bucket{namespace="kong"}[5m]))) > 1000
+          for: 5m
+          labels:
+            severity: warning
+            component: gateway
+          annotations:
+            summary: Kong p95 end-to-end latency exceeds one second
+            description: Investigate Kong overhead, upstream latency, and data-service health.
+        - alert: CnasKicConfigurationPushFailed
+          expr: increase(ingress_controller_configuration_push_count{namespace="kong", success="false"}[10m]) > 0
+          for: 1m
+          labels:
+            severity: critical
+            component: gateway-controller
+          annotations:
+            summary: Kong Ingress Controller failed to apply configuration
+            description: Inspect KIC logs and KongConfigurationApplyFailed Kubernetes Events.
+        - alert: CnasKicTranslationFailed
+          expr: increase(ingress_controller_translation_count{namespace="kong", success="false"}[10m]) > 0
+          for: 1m
+          labels:
+            severity: warning
+            component: gateway-controller
+          annotations:
+            summary: Kong Ingress Controller could not translate a resource
+            description: Inspect KongConfigurationTranslationFailed Kubernetes Events.
+
+    - name: cnas.mysql
+      rules:
+        - alert: CnasMysqlExporterScrapeDown
+          expr: max(up{namespace="cnas", service="mysql-exporter"}) == 0 or absent(up{namespace="cnas", service="mysql-exporter"})
+          for: 2m
+          labels:
+            severity: warning
+            component: database-monitoring
+          annotations:
+            summary: Prometheus cannot scrape the MySQL exporter
+            description: Check the exporter Pod, ServiceMonitor, and NetworkPolicy separately from MySQL.
+        - alert: CnasMysqlUnavailable
+          expr: max(mysql_up{namespace="cnas"}) == 0
+          for: 2m
+          labels:
+            severity: critical
+            component: database
+          annotations:
+            summary: MySQL is unavailable to the exporter
+            description: The exporter is running but cannot connect to the MySQL server.
+        - alert: CnasMysqlConnectionsHigh
+          expr: max(mysql_global_status_threads_connected{namespace="cnas"}) / clamp_min(max(mysql_global_variables_max_connections{namespace="cnas"}), 1) > 0.8
+          for: 5m
+          labels:
+            severity: warning
+            component: database
+          annotations:
+            summary: CNAS MySQL connection utilization exceeds 80 percent
+            description: High connection utilization can cause application errors.
+        - alert: CnasMysqlSlowQueries
+          expr: increase(mysql_global_status_slow_queries{namespace="cnas"}[15m]) > 10
+          for: 5m
+          labels:
+            severity: warning
+            component: database
+          annotations:
+            summary: MySQL is accumulating slow queries
+            description: More than ten slow queries were recorded in fifteen minutes.
+        - alert: CnasMysqlAbortedConnections
+          expr: increase(mysql_global_status_aborted_connects{namespace="cnas"}[15m]) > 5
+          for: 5m
+          labels:
+            severity: warning
+            component: database
+          annotations:
+            summary: MySQL is rejecting or aborting connections
+            description: More than five connection attempts were aborted in fifteen minutes.
+        - alert: CnasMysqlPvcNearlyFull
+          expr: kubelet_volume_stats_used_bytes{namespace="cnas", persistentvolumeclaim="mysql-pvc"} / kubelet_volume_stats_capacity_bytes{namespace="cnas", persistentvolumeclaim="mysql-pvc"} > 0.85
+          for: 10m
+          labels:
+            severity: warning
+            component: storage
+          annotations:
+            summary: CNAS MySQL persistent volume is nearly full
+            description: More than 85 percent of the MySQL PVC is in use.
+        - alert: CnasMysqlPvcPending
+          expr: kube_persistentvolumeclaim_status_phase{namespace="cnas", persistentvolumeclaim="mysql-pvc", phase="Pending"} == 1
+          for: 5m
+          labels:
+            severity: critical
+            component: storage
+          annotations:
+            summary: CNAS MySQL PVC is pending
+            description: The MySQL volume claim has not bound to storage.
+        - alert: CnasMysqlBackupJobFailed
+          expr: max(kube_job_failed{namespace="cnas", job_name=~"mysql-backup.*", condition="true"}) > 0
+          for: 1m
+          labels:
+            severity: critical
+            component: backup
+          annotations:
+            summary: A MySQL backup Job failed
+            description: Inspect the failed Job logs before deleting or retrying it.
+        - alert: CnasMysqlBackupStale
+          expr: time() - max(kube_cronjob_status_last_successful_time{namespace="cnas", cronjob="mysql-backup"}) > 36 * 60 * 60 or absent(kube_cronjob_status_last_successful_time{namespace="cnas", cronjob="mysql-backup"})
+          for: 30m
+          labels:
+            severity: warning
+            component: backup
+          annotations:
+            summary: No successful MySQL backup has completed for 36 hours
+            description: Check the CronJob schedule, Job status, storage, and database credentials.
+
+    - name: cnas.redis
+      rules:
+        - alert: CnasRedisExporterScrapeDown
+          expr: max(up{namespace="cnas", service="redis-exporter"}) == 0 or absent(up{namespace="cnas", service="redis-exporter"})
+          for: 2m
+          labels:
+            severity: warning
+            component: session-monitoring
+          annotations:
+            summary: Prometheus cannot scrape the Redis exporter
+            description: Check the exporter Pod, ServiceMonitor, and NetworkPolicy separately from Redis.
+        - alert: CnasRedisUnavailable
+          expr: max(redis_up{namespace="cnas"}) == 0
+          for: 2m
+          labels:
+            severity: critical
+            component: session-store
+          annotations:
+            summary: Redis is unavailable to the exporter
+            description: Shared PHP sessions and CSRF tokens are at risk.
+        - alert: CnasRedisMemoryHigh
+          expr: max(redis_memory_used_bytes{namespace="cnas"}) / clamp_min(max(redis_memory_max_bytes{namespace="cnas"}), 1) > 0.85
+          for: 10m
+          labels:
+            severity: warning
+            component: session-store
+          annotations:
+            summary: Redis memory use exceeds 85 percent of maxmemory
+            description: The noeviction policy protects sessions but new writes can fail when memory is exhausted.
+        - alert: CnasRedisEvictingSessions
+          expr: increase(redis_evicted_keys_total{namespace="cnas"}[10m]) > 0
+          for: 1m
+          labels:
+            severity: critical
+            component: session-store
+          annotations:
+            summary: Redis evicted one or more keys
+            description: Session or CSRF state may have been lost; verify the active maxmemory policy.
+        - alert: CnasRedisRejectedConnections
+          expr: increase(redis_rejected_connections_total{namespace="cnas"}[10m]) > 0
+          for: 1m
+          labels:
+            severity: warning
+            component: session-store
+          annotations:
+            summary: Redis rejected one or more client connections
+            description: Check client limits, memory pressure, authentication, and NetworkPolicy.
+        - alert: CnasRedisBlockedClients
+          expr: max(redis_blocked_clients{namespace="cnas"}) > 0
+          for: 5m
+          labels:
+            severity: warning
+            component: session-store
+          annotations:
+            summary: Redis has blocked clients
+            description: One or more clients have remained blocked for five minutes.
+
+    - name: cnas.cluster
+      rules:
+        - alert: CnasPodRestarting
+          expr: increase(kube_pod_container_status_restarts_total{namespace=~"cnas|kong|monitoring"}[10m]) > 2
+          for: 1m
+          labels:
+            severity: warning
+            component: workload
+          annotations:
+            summary: A CNAS platform container is repeatedly restarting
+            description: A container restarted more than twice during the last ten minutes.
+        - alert: CnasPodPending
+          expr: kube_pod_status_phase{namespace=~"cnas|kong|monitoring", phase="Pending"} == 1
+          for: 10m
+          labels:
+            severity: warning
+            component: workload
+          annotations:
+            summary: A CNAS platform Pod has remained Pending
+            description: Check scheduling events, image pulls, storage, and node capacity.
         - alert: CnasHpaAtMaximum
           expr: kube_horizontalpodautoscaler_status_current_replicas{namespace="cnas", horizontalpodautoscaler="php-app-hpa"} >= kube_horizontalpodautoscaler_spec_max_replicas{namespace="cnas", horizontalpodautoscaler="php-app-hpa"}
           for: 10m
@@ -27,19 +309,42 @@ spec:
           annotations:
             summary: CNAS HPA has remained at maximum replicas
             description: Sustained maximum scaling can indicate capacity pressure.
-    - name: cnas.database
-      rules:
-        - alert: CnasMysqlExporterDown
-          expr: mysql_up{namespace="cnas"} == 0 or absent(mysql_up{namespace="cnas"})
-          for: 2m
+        - alert: CnasHpaMetricsUnavailable
+          expr: kube_horizontalpodautoscaler_status_condition{namespace="cnas", horizontalpodautoscaler="php-app-hpa", condition="ScalingActive", status="false"} == 1
+          for: 10m
+          labels:
+            severity: warning
+            component: scalability
+          annotations:
+            summary: CNAS HPA cannot calculate desired replicas
+            description: Verify Metrics Server, CPU requests, and HPA events.
+        - alert: CnasNodeNotReady
+          expr: kube_node_status_condition{condition="Ready", status="true"} == 0
+          for: 5m
           labels:
             severity: critical
-            component: database
+            component: cluster
           annotations:
-            summary: CNAS MySQL is not observable or is unavailable
-            description: mysqld_exporter cannot connect to MySQL.
-    - name: cnas.cluster
-      rules:
+            summary: A Kubernetes node is not ready
+            description: At least one Kind node has remained NotReady for five minutes.
+        - alert: CnasNodeMemoryPressure
+          expr: kube_node_status_condition{condition="MemoryPressure", status="true"} == 1
+          for: 5m
+          labels:
+            severity: warning
+            component: cluster
+          annotations:
+            summary: A Kubernetes node reports memory pressure
+            description: Reduce workload memory use or increase Kind/Docker Desktop capacity.
+        - alert: CnasNodeDiskPressure
+          expr: kube_node_status_condition{condition="DiskPressure", status="true"} == 1
+          for: 5m
+          labels:
+            severity: warning
+            component: cluster
+          annotations:
+            summary: A Kubernetes node reports disk pressure
+            description: Free container storage or increase Docker Desktop disk capacity.
         - alert: CnasAlertPipelineDrill
           expr: kube_configmap_info{namespace="monitoring", configmap="cnas-alert-drill"} == 1
           for: 30s

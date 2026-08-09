@@ -7,10 +7,13 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+$KongChartVersion = "0.24.0"
 $KubePrometheusStackVersion = "86.0.0"
+$BlackboxExporterVersion = "11.15.1"
 $LokiVersion = "18.5.1"
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $ObservabilityDirectory = Join-Path $RepoRoot "k8s\observability"
+$KongValuesPath = Join-Path $RepoRoot "k8s\gateway\kong-values.yaml"
 
 function Assert-Command {
     param([Parameter(Mandatory = $true)][string]$Name)
@@ -175,6 +178,11 @@ FLUSH PRIVILEGES;
     }
 
     Invoke-Checked -Command "helm" -Arguments @(
+        "repo", "add", "kong",
+        "https://charts.konghq.com",
+        "--force-update"
+    )
+    Invoke-Checked -Command "helm" -Arguments @(
         "repo", "add", "prometheus-community",
         "https://prometheus-community.github.io/helm-charts",
         "--force-update"
@@ -193,6 +201,50 @@ FLUSH PRIVILEGES;
         "--values", (Join-Path $ObservabilityDirectory "kube-prometheus-stack-values.yaml"),
         "--atomic", "--wait", "--timeout", "15m"
     )
+
+    # Grafana stores the administrator password in its database after first
+    # start. Keep it synchronized with the existing Secret so chart upgrades
+    # and the dashboard sidecar continue to authenticate even if that database
+    # has outlived a previous Pod or Secret update. The password is sent only
+    # over stdin and is never printed or placed in process arguments.
+    $encodedGrafanaPassword = & kubectl -n monitoring get secret cnas-grafana-admin -o "jsonpath={.data.admin-password}"
+    if ($LASTEXITCODE -ne 0 -or -not $encodedGrafanaPassword) {
+        throw "Secret monitoring/cnas-grafana-admin has no 'admin-password' key."
+    }
+    $grafanaAdminPassword = [System.Text.Encoding]::UTF8.GetString(
+        [Convert]::FromBase64String($encodedGrafanaPassword)
+    )
+    $grafanaPod = & kubectl -n monitoring get pod `
+        -l "app.kubernetes.io/name=grafana,app.kubernetes.io/instance=monitoring" `
+        -o "jsonpath={.items[0].metadata.name}"
+    if ($LASTEXITCODE -ne 0 -or -not $grafanaPod) {
+        throw "No Grafana Pod was found after the monitoring chart upgrade."
+    }
+    Invoke-Checked -Command "kubectl" -Arguments @(
+        "-n", "monitoring", "wait", "--for=condition=Ready", "pod/$grafanaPod", "--timeout=180s"
+    )
+    $grafanaAdminPassword | & kubectl -n monitoring exec -i $grafanaPod -c grafana -- `
+        grafana cli admin reset-admin-password --password-from-stdin
+    $grafanaPasswordSyncExitCode = $LASTEXITCODE
+    $grafanaAdminPassword = $null
+    if ($grafanaPasswordSyncExitCode -ne 0) {
+        throw "Failed to synchronize the Grafana administrator password with its Secret."
+    }
+    Write-Host "Synchronized Grafana's administrator password with Secret monitoring/cnas-grafana-admin."
+
+    # Kong is installed before Prometheus Operator, so its chart cannot create
+    # a ServiceMonitor on the first platform install. Upgrade the same pinned
+    # release after the CRD exists; this changes no proxy settings but adds the
+    # chart-managed gateway metrics target.
+    Invoke-Checked -Command "helm" -Arguments @("status", "kong", "--namespace", "kong")
+    Invoke-Checked -Command "helm" -Arguments @(
+        "upgrade", "kong", "kong/ingress",
+        "--version", $KongChartVersion,
+        "--namespace", "kong",
+        "--values", $KongValuesPath,
+        "--atomic", "--wait", "--timeout", "10m"
+    )
+
     Invoke-Checked -Command "helm" -Arguments @(
         "upgrade", "--install", "loki", "grafana-community/loki",
         "--version", $LokiVersion,
@@ -200,9 +252,24 @@ FLUSH PRIVILEGES;
         "--values", (Join-Path $ObservabilityDirectory "loki-values.yaml"),
         "--atomic", "--wait", "--timeout", "10m"
     )
+    Invoke-Checked -Command "helm" -Arguments @(
+        "upgrade", "--install", "blackbox", "prometheus-community/prometheus-blackbox-exporter",
+        "--version", $BlackboxExporterVersion,
+        "--namespace", "monitoring",
+        "--values", (Join-Path $ObservabilityDirectory "blackbox-values.yaml"),
+        "--atomic", "--wait", "--timeout", "10m"
+    )
+
     Invoke-Checked -Command "kubectl" -Arguments @("apply", "-f", (Join-Path $ObservabilityDirectory "alloy.yaml"))
+    Invoke-Checked -Command "kubectl" -Arguments @("apply", "-f", (Join-Path $ObservabilityDirectory "monitoring-network-policies.yaml"))
+    Invoke-Checked -Command "kubectl" -Arguments @("apply", "-f", (Join-Path $ObservabilityDirectory "probes.yaml"))
+    Invoke-Checked -Command "kubectl" -Arguments @("apply", "-f", (Join-Path $ObservabilityDirectory "kong-controller-monitor.yaml"))
     Invoke-Checked -Command "kubectl" -Arguments @("apply", "-f", (Join-Path $ObservabilityDirectory "prometheus-rules.yaml"))
     Invoke-Checked -Command "kubectl" -Arguments @("apply", "-f", (Join-Path $ObservabilityDirectory "grafana-dashboard.yaml"))
+    Invoke-Checked -Command "kubectl" -Arguments @("apply", "-f", (Join-Path $ObservabilityDirectory "redis-exporter.yaml"))
+    Invoke-Checked -Command "kubectl" -Arguments @(
+        "-n", "cnas", "rollout", "status", "deployment/redis-exporter", "--timeout=180s"
+    )
 
     if (-not $SkipMysqlExporter) {
         Invoke-Checked -Command "kubectl" -Arguments @("apply", "-f", (Join-Path $ObservabilityDirectory "mysql-exporter.yaml"))
@@ -213,6 +280,15 @@ FLUSH PRIVILEGES;
 
     Invoke-Checked -Command "kubectl" -Arguments @(
         "-n", "monitoring", "rollout", "status", "deployment/alloy", "--timeout=180s"
+    )
+    Invoke-Checked -Command "kubectl" -Arguments @(
+        "-n", "monitoring", "rollout", "status", "deployment/blackbox-exporter", "--timeout=180s"
+    )
+    Invoke-Checked -Command "kubectl" -Arguments @(
+        "-n", "monitoring", "get", "servicemonitor", "blackbox-exporter", "kong-gateway", "kong-ingress-controller"
+    )
+    Invoke-Checked -Command "kubectl" -Arguments @(
+        "-n", "monitoring", "get", "probe", "cnas-app-service", "cnas-gateway"
     )
 }
 finally {
@@ -225,6 +301,7 @@ Write-Host ""
 Write-Host "Observability installation completed." -ForegroundColor Green
 Write-Host "Grafana:    kubectl -n monitoring port-forward svc/monitoring-grafana 3000:80"
 Write-Host "Prometheus: kubectl -n monitoring port-forward svc/monitoring-prometheus 9090:9090"
+Write-Host "Dashboards: CNAS Platform Overview; CNAS Gateway and Load Balancing; CNAS MySQL and Redis Data Services"
 Write-Host "Grafana password (do not paste it into the report):"
 Write-Host "`$encoded = kubectl -n monitoring get secret cnas-grafana-admin -o 'jsonpath={.data.admin-password}'; [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(`$encoded))"
 Write-Host "Next: .\scripts\Invoke-CnasValidation.ps1"

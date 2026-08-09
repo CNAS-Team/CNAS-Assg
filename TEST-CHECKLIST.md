@@ -18,7 +18,7 @@ Use this checklist with [docs/DEMO-RUNBOOK.md](docs/DEMO-RUNBOOK.md).
 - [ ] Runtime credentials and TLS were bootstrapped outside Git.
 - [ ] Versioned database migration completes.
 - [ ] Three PHP replicas are ready and spread across workers where capacity permits.
-- [ ] MySQL and Redis persistence is demonstrated without claiming data-tier HA.
+- [ ] MySQL persistence is demonstrated; Redis restart/session-loss behavior is documented without claiming data-tier HA.
 
 ## Security and resilience
 
@@ -32,7 +32,8 @@ Use this checklist with [docs/DEMO-RUNBOOK.md](docs/DEMO-RUNBOOK.md).
 
 ## Monitoring, recovery, and delivery
 
-- [ ] Prometheus targets are healthy and the Grafana dashboard has live data.
+- [ ] Blackbox, Kong/KIC, MySQL, Redis, kube-state, kubelet/cAdvisor, and all four node-exporter targets are healthy.
+- [ ] All three provisioned Grafana dashboards show live data after controlled traffic is generated.
 - [ ] Loki contains scoped application/gateway/platform logs.
 - [ ] A safe alert drill fires and clears.
 - [ ] MySQL backup has a timestamp and SHA-256 digest.

@@ -1,4 +1,4 @@
-# Resource-conscious values for a local three-node Kind cluster.
+# Resource-conscious values for a local four-node Kind cluster.
 # The chart itself is pinned by scripts/Install-Observability.ps1.
 fullnameOverride: monitoring
 
@@ -98,6 +98,15 @@ prometheusOperator:
       cpu: 300m
       memory: 256Mi
 
+kubelet:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    cAdvisor: true
+
+kubeStateMetrics:
+  enabled: true
+
 kube-state-metrics:
   resources:
     requests:
@@ -107,5 +116,17 @@ kube-state-metrics:
       cpu: 200m
       memory: 192Mi
 
+# Keep node health and host-capacity metrics available for the four Kind nodes.
+# `nodeExporter.enabled` controls the chart dependency; the similarly named
+# subchart block below only configures its resources.
+nodeExporter:
+  enabled: true
+
 prometheus-node-exporter:
-  enabled: false
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 150m
+      memory: 96Mi

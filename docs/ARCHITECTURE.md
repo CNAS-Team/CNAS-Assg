@@ -31,9 +31,9 @@ flowchart LR
 | Application | Three non-root PHP/Apache Pods on port 8080 | Stateless CRUD processing, rolling updates, health checks, horizontal scaling, and worker-node distribution. |
 | Shared sessions | Password-protected Redis | Prevent PHP session and CSRF-token failures when requests reach different replicas. |
 | Data | Single MySQL StatefulSet and PVC | Stable identity and persistent coursework data with tested backup/restore. |
-| Network security | Calico and default-deny NetworkPolicies | Enforce only gateway→PHP, PHP→MySQL/Redis, and required DNS flows. |
+| Network security | Calico and default-deny NetworkPolicies | Enforce only gateway→PHP, PHP→MySQL/Redis, scoped monitoring scrapes/probes, and required DNS flows. |
 | Admission security | Restricted Pod Security labels and Kyverno policies | Reject privileged/root workloads, missing resources, and mutable image tags. |
-| Observability | Prometheus stack, MySQL exporter, Loki and Alloy | Metrics, dashboards, alerts, and centralized application/platform logs. |
+| Observability | Prometheus stack, blackbox probes, Kong/KIC metrics, MySQL and Redis exporters, node-exporter, Loki and Alloy | In-cluster route availability, load-balancer traffic/latency, data-service and node capacity, dashboards, alerts, and centralized logs. |
 | Delivery | Jenkins, Trivy, Docker Hub, Kustomize | Trace one commit through tests and security gates to the running image. |
 
 ## Trust boundaries and sensitive flows
@@ -57,6 +57,7 @@ flowchart LR
 
 - Kind nodes are containers on one physical computer. They demonstrate Kubernetes node scheduling and recovery, but loss of the computer removes the whole cluster.
 - MySQL and Redis each have one replica. The web tier is redundant, but the entire system is not fully highly available. MySQL backup/restore evidence reduces recovery risk but is not synchronous database failover.
+- Redis session state survives Pod replacement on a local `ReadWriteOnce` PVC, but the single replica and local volume do not protect against volume, node, or host loss.
 - a `ReadWriteOnce` local PVC is suitable for the coursework environment, not multi-zone production storage.
 - the application image is versioned and scanned; image signing and admission-time signature verification remain stretch controls.
 - the CRUD application has CSRF protection but no user authentication or role-based authorization. Kong authentication or an application identity layer is required before exposing it beyond the controlled coursework environment.

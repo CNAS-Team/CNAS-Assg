@@ -26,8 +26,8 @@ metadata:
 spec:
   replicas: 1
   strategy:
-    # A single persistent Redis instance must not briefly run two independent
-    # session stores during an update.
+    # A single Redis instance must not briefly run two independent session
+    # stores during an update.
     type: Recreate
   selector:
     matchLabels:
@@ -68,6 +68,10 @@ spec:
               appendonly yes
               appendfsync everysec
               save 60 1000
+              # Keep exporter memory ratios meaningful and prevent silent
+              # eviction of shared PHP sessions under memory pressure.
+              maxmemory 96mb
+              maxmemory-policy noeviction
               EOF
               printf 'requirepass "%s"\n' "$escaped_password" >> /tmp/redis.conf
               exec redis-server /tmp/redis.conf
