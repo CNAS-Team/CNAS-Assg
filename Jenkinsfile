@@ -1,5 +1,4 @@
 def appImage
-def deployStarted = false
 
 pipeline {
     agent any
@@ -33,6 +32,7 @@ pipeline {
         K8S_NAMESPACE = 'cnas'
         DEPLOYMENT_NAME = 'php-app'
 
+        DEPLOY_STARTED = 'false'
     }
 
     stages {
@@ -64,10 +64,8 @@ pipeline {
                 echo "=== Scanning Git History for Leaked Secrets ==="
                 sh '''
                     docker run --rm \
-                      --volumes-from "$HOSTNAME" \
-                      -w "$WORKSPACE" \
-                      zricethezav/gitleaks:latest \
-                      detect --source="$WORKSPACE" -v
+                      -v "$WORKSPACE:/path" \
+                      zricethezav/gitleaks:latest detect --source="/path" -v
                 '''
             }
         }
@@ -107,10 +105,8 @@ pipeline {
                 echo "=== Scanning PHP Source Code for Vulnerabilities ==="
                 sh '''
                     docker run --rm \
-                      --volumes-from "$HOSTNAME" \
-                      -w "$WORKSPACE" \
-                      returntocorp/semgrep \
-                      semgrep scan --config=p/php .
+                      -v "$WORKSPACE:/src" \
+                      returntocorp/semgrep semgrep scan --config=p/php /src
                 '''
             }
         }
@@ -283,22 +279,15 @@ pipeline {
                             set -eu
                             set +x
 
-                            kubectl apply -f k8s/00-namespace.yaml
-
-                            if kubectl get secret cnas-secret \
-                              -n "$K8S_NAMESPACE" >/dev/null 2>&1; then
-                                echo "Reusing existing cnas-secret; automatic credential rotation is disabled."
-                            else
-                                kubectl create secret generic cnas-secret \
-                                  --namespace "$K8S_NAMESPACE" \
-                                  --from-literal=DB_USER="$CNAS_DB_USER" \
-                                  --from-literal=DB_PASSWORD="$CNAS_DB_PASSWORD" \
-                                  --from-literal=MYSQL_ROOT_PASSWORD="$CNAS_MYSQL_ROOT_PASSWORD" \
-                                  --from-literal=REDIS_PASSWORD="$CNAS_REDIS_PASSWORD" \
-                                  --dry-run=client \
-                                  -o yaml \
-                                  | kubectl apply -f -
-                            fi
+                            kubectl create secret generic cnas-secret \
+                              --namespace "$K8S_NAMESPACE" \
+                              --from-literal=DB_USER="$CNAS_DB_USER" \
+                              --from-literal=DB_PASSWORD="$CNAS_DB_PASSWORD" \
+                              --from-literal=MYSQL_ROOT_PASSWORD="$CNAS_MYSQL_ROOT_PASSWORD" \
+                              --from-literal=REDIS_PASSWORD="$CNAS_REDIS_PASSWORD" \
+                              --dry-run=client \
+                              -o yaml \
+                              | kubectl apply -f -
 
                             set -x
 
@@ -309,7 +298,7 @@ pipeline {
                     }
 
                     script {
-                        deployStarted = true
+                        env.DEPLOY_STARTED = 'true'
 
                         sh '''
                             set -eu
@@ -334,16 +323,6 @@ images:
                     sh '''
                         set -eu
 
-                        echo "Jenkins Kubernetes context: $(kubectl config current-context)"
-                        kubectl get nodes -o wide
-
-                        # Recreate the idempotent migration Job so this build
-                        # validates database access instead of accepting a
-                        # stale completion from an earlier deployment.
-                        kubectl delete job db-migration-v3 \
-                          -n "$K8S_NAMESPACE" \
-                          --ignore-not-found
-
                         kubectl apply \
                           -k ci-runtime
 
@@ -361,49 +340,10 @@ images:
                           cnas.assignment/image="$DOCKER_IMAGE_NAME:$IMAGE_TAG" \
                           --overwrite
 
-                        if ! kubectl rollout status \
+                        kubectl rollout status \
                           deployment/"$DEPLOYMENT_NAME" \
                           -n "$K8S_NAMESPACE" \
-                          --timeout=5m; then
-                            echo "=== Deployment rollout diagnostics ==="
-                            kubectl get deployment,replicaset,pod \
-                              -n "$K8S_NAMESPACE" \
-                              -l app=php-app \
-                              -o wide \
-                              || true
-                            kubectl describe deployment "$DEPLOYMENT_NAME" \
-                              -n "$K8S_NAMESPACE" \
-                              || true
-                            kubectl get events \
-                              -n "$K8S_NAMESPACE" \
-                              --sort-by=.lastTimestamp \
-                              | tail -n 100 \
-                              || true
-
-                            for pod in $(
-                                kubectl get pods \
-                                  -n "$K8S_NAMESPACE" \
-                                  -l app=php-app \
-                                  -o name
-                            ); do
-                                echo "=== $pod ==="
-                                kubectl describe "$pod" \
-                                  -n "$K8S_NAMESPACE" \
-                                  || true
-                                kubectl logs "$pod" \
-                                  -n "$K8S_NAMESPACE" \
-                                  -c php-app \
-                                  --tail=200 \
-                                  || true
-                                kubectl logs "$pod" \
-                                  -n "$K8S_NAMESPACE" \
-                                  -c wait-for-mysql \
-                                  --tail=100 \
-                                  || true
-                            done
-
-                            exit 1
-                        fi
+                          --timeout=5m
 
                         kubectl wait \
                           --for=condition=Ready \
@@ -440,7 +380,7 @@ images:
     post {
         failure {
             script {
-                if (deployStarted) {
+                if (env.DEPLOY_STARTED == 'true') {
                     withKubeConfig([
                         credentialsId:
                             env.KUBERNETES_CREDENTIALS_ID
@@ -477,6 +417,7 @@ images:
                 fingerprint: true
             )
 
+            cleanWs()
         }
 
         success {
@@ -484,10 +425,6 @@ images:
                 "Deployed ${env.DOCKER_IMAGE_NAME}:" +
                 "${env.IMAGE_TAG} from commit ${env.GIT_SHA}."
             )
-        }
-
-        cleanup {
-            cleanWs()
         }
     }
 }
