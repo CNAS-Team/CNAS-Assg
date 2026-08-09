@@ -43,7 +43,7 @@ k8s/overlays/ci-runtime/
 *.pem
 *.key
 *.crt
-config
+
 
 # Build artifacts
 dist/
