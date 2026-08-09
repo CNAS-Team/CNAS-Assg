@@ -38,3 +38,11 @@ function database_connection(): mysqli
 
     return $connection;
 }
+
+function assert_database_schema_ready(mysqli $connection): void
+{
+    // Query the columns used by the CRUD pages so readiness fails when a
+    // migration is missing or the deployed schema is incompatible.
+    $result = $connection->query('SELECT id, name, email FROM users LIMIT 1');
+    $result->free();
+}

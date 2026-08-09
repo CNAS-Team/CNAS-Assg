@@ -9,7 +9,7 @@ header('Cache-Control: no-store');
 
 try {
     $connection = database_connection();
-    $connection->query('SELECT 1');
+    assert_database_schema_ready($connection);
     $connection->close();
     if (configured_session_handler() === 'redis') {
         assert_redis_session_store_ready();
