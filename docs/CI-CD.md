@@ -73,7 +73,7 @@ Start an ngrok tunnel pointing to the local Jenkins port (default `8080`):
 ```bash
 ngrok http 8080
 ```
-### 2. Configure GitHub
+### 2. Configure GitHub 
 Once the tunnel is active, register the generated public URL with GitHub:
 1. Navigate to the GitHub repository Settings > Webhooks. 
 2. Add or edit a webhook. 
